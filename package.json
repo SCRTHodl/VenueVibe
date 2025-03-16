@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev-env": "node scripts/dev-with-env.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify-config": "node scripts/verify-config.js"
   },
   "dependencies": {
     "@stripe/stripe-js": "^2.4.0",

@@ -1,8 +1,33 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <title>Sotto City - Local Influence Network</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Venue Vibe - Local Influence Network</title>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <link href='https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap' rel='stylesheet'>
+    <!-- Load Clash Display font properly with multiple formats for better browser compatibility -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('https://cdn.jsdelivr.net/gh/csstools/fontsource@main/fonts/clash-display/clash-display-latin-ext-400-normal.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/gh/csstools/fontsource@main/fonts/clash-display/clash-display-latin-ext-400-normal.woff') format('woff');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('https://cdn.jsdelivr.net/gh/csstools/fontsource@main/fonts/clash-display/clash-display-latin-ext-600-normal.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/gh/csstools/fontsource@main/fonts/clash-display/clash-display-latin-ext-600-normal.woff') format('woff');
+        font-weight: 600;
+        font-style: normal;
+        font-display: swap;
+      }
+    </style>
+    <script src="https://js.stripe.com/v3/" async></script>
   </head>
   <body>
     <div id="root"></div>

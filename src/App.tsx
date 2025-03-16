@@ -137,14 +137,15 @@ function App() {
     initializeWallet();
     
     // Handle email verification from URL if present
-    import('./lib/auth/handleEmailVerification').then(({ handleEmailVerification }) => {
-      handleEmailVerification().then(result => {
-        if (result.success) {
-          toast.success(result.message);
-        } else if (result.message !== 'No verification link detected') {
-          toast.error(result.message);
-        }
-      });
+    // Import synchronously to ensure it runs immediately
+    const { handleEmailVerification } = require('./lib/auth/handleEmailVerification');
+    handleEmailVerification().then((result: { success: boolean; message: string }) => {
+      if (result.success) {
+        toast.success(result.message);
+      } else if (result.message !== 'No verification link detected') {
+        // Only show errors for actual verification attempts
+        toast.error(result.message);
+      }
     });
   }, [initializeWallet]);
   

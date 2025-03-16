@@ -1,11 +1,10 @@
 import { supabase } from './supabase';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { getAdminClient } from '../utils/supabaseClient';
+import { tokenEconomyClient } from '../utils/tokenEconomyClient';
 
-// Get admin client for token_economy schema access
-const tokenEconomyAdmin = getAdminClient();
-const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+// Using secure edge function approach for token economy operations
+// This prevents exposing service role key in client code
 
 // Update token economy constants to adjust costs and rewards
 export const TOKEN_ECONOMY = {
@@ -95,14 +94,10 @@ export const useTokenStore = create<TokenState>()(
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session?.user) {
-            const { data, error } = await tokenEconomyAdmin
-              .schema(tokenEconomySchema)
-              .from('user_wallets')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .single();
-              
-            if (error && error.code !== 'PGRST116') {
+            // Use the secure tokenEconomyClient for wallet operations
+            const { data, error } = await tokenEconomyClient.getWallet();
+            
+            if (error) {
               console.error('Error fetching wallet:', error);
             }
             
@@ -145,6 +140,7 @@ export const useTokenStore = create<TokenState>()(
             timestamp: new Date().toISOString()
           };
           
+          // Update local state immediately for responsive UI
           set(state => ({
             balance: state.balance + amount,
             totalEarned: state.totalEarned + amount,
@@ -155,25 +151,25 @@ export const useTokenStore = create<TokenState>()(
           if (session?.user) {
             transaction.userId = session.user.id;
             
-            const { error: txError } = await supabase
-              .from('token_economy.token_transactions')
-              .insert([{
-                user_id: session.user.id,
-                type: 'earn',
-                amount,
-                reason,
-                metadata: locationId ? { locationId } : null
-              }]);
-            
-            if (txError) console.error('Error recording transaction:', txError);
-            
-            const { error: walletError } = await supabase.rpc('update_token_balance', {
+            // Use the secure edge function for token economy operations
+            const { error } = await tokenEconomyClient.insert('token_transactions', {
               user_id: session.user.id,
-              amount_change: amount,
-              is_spend: false
+              type: 'earn',
+              amount,
+              reason,
+              metadata: locationId ? { locationId } : null
             });
             
-            if (walletError) console.error('Error updating wallet:', walletError);
+            if (error) {
+              console.error('Error recording transaction:', error);
+              // Revert local state if server operation failed
+              set(state => ({
+                balance: state.balance - amount,
+                totalEarned: state.totalEarned - amount,
+                transactions: state.transactions.filter(tx => tx.id !== transaction.id)
+              }));
+              return false;
+            }
           }
           
           return true;
@@ -197,6 +193,7 @@ export const useTokenStore = create<TokenState>()(
             timestamp: new Date().toISOString()
           };
           
+          // Update local state immediately for responsive UI
           set(state => ({
             balance: state.balance - amount,
             totalSpent: state.totalSpent + amount,
@@ -207,25 +204,25 @@ export const useTokenStore = create<TokenState>()(
           if (session?.user) {
             transaction.userId = session.user.id;
             
-            const { error: txError } = await supabase
-              .from('token_economy.token_transactions')
-              .insert([{
-                user_id: session.user.id,
-                type: 'spend',
-                amount: -amount,
-                reason,
-                metadata: itemId ? { itemId } : null
-              }]);
-            
-            if (txError) console.error('Error recording transaction:', txError);
-            
-            const { error: walletError } = await supabase.rpc('update_token_balance', {
+            // Use the secure edge function for token economy operations
+            const { error } = await tokenEconomyClient.insert('token_transactions', {
               user_id: session.user.id,
-              amount_change: amount,
-              is_spend: true
+              type: 'spend',
+              amount: -amount,
+              reason,
+              metadata: itemId ? { itemId } : null
             });
             
-            if (walletError) console.error('Error updating wallet:', walletError);
+            if (error) {
+              console.error('Error recording transaction:', error);
+              // Revert local state if server operation failed
+              set(state => ({
+                balance: state.balance + amount,
+                totalSpent: state.totalSpent - amount,
+                transactions: state.transactions.filter(tx => tx.id !== transaction.id)
+              }));
+              return false;
+            }
           }
           
           return true;
@@ -251,6 +248,7 @@ export const useTokenStore = create<TokenState>()(
             timestamp: new Date().toISOString()
           };
           
+          // Update local state immediately for responsive UI
           set(state => ({
             balance: state.balance + totalTokens,
             totalEarned: state.totalEarned + totalTokens,
@@ -261,29 +259,29 @@ export const useTokenStore = create<TokenState>()(
           if (session?.user) {
             transaction.userId = session.user.id;
             
-            const { error: txError } = await supabase
-              .from('token_economy.token_transactions')
-              .insert([{
-                user_id: session.user.id,
-                type: 'purchase',
-                amount: totalTokens,
-                reason: `Purchased ${tokenPackage.name}`,
-                metadata: { 
-                  packageId,
-                  price: tokenPackage.price,
-                  paymentMethod
-                }
-              }]);
-            
-            if (txError) console.error('Error recording purchase:', txError);
-            
-            const { error: walletError } = await supabase.rpc('update_token_balance', {
+            // Use the secure edge function for token economy operations
+            const { error } = await tokenEconomyClient.insert('token_transactions', {
               user_id: session.user.id,
-              amount_change: totalTokens,
-              is_spend: false
+              type: 'purchase',
+              amount: totalTokens,
+              reason: `Purchased ${tokenPackage.name}`,
+              metadata: { 
+                packageId,
+                price: tokenPackage.price,
+                paymentMethod
+              }
             });
             
-            if (walletError) console.error('Error updating wallet:', walletError);
+            if (error) {
+              console.error('Error recording purchase:', error);
+              // Revert local state if server operation failed
+              set(state => ({
+                balance: state.balance - totalTokens,
+                totalEarned: state.totalEarned - totalTokens,
+                transactions: state.transactions.filter(tx => tx.id !== transaction.id)
+              }));
+              return false;
+            }
           }
           
           return true;
@@ -298,17 +296,20 @@ export const useTokenStore = create<TokenState>()(
         if (!session?.user) return get().transactions;
         
         try {
-          const { data, error } = await supabase
-            .from('token_economy.token_transactions')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .order('created_at', { ascending: false })
-            .limit(100);
+          // Use secure edge function to get transaction history
+          const { data, error } = await tokenEconomyClient.select('token_transactions', {
+            user_id: session.user.id
+          });
             
           if (error) throw error;
           
           if (data) {
-            const transactions: Transaction[] = data.map(tx => ({
+            // Sort by created_at since we don't have control over the order in the edge function
+            const sortedData = [...data].sort((a, b) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            ).slice(0, 100); // Limit to 100 most recent
+            
+            const transactions: Transaction[] = sortedData.map(tx => ({
               id: tx.id,
               userId: tx.user_id,
               type: tx.type as 'earn' | 'spend' | 'purchase',
@@ -335,11 +336,8 @@ export const useTokenStore = create<TokenState>()(
         try {
           set({ isLoading: true });
           
-          const { data, error } = await supabase
-            .from('token_economy.user_wallets')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
+          // Use secure edge function to get wallet data
+          const { data, error } = await tokenEconomyClient.getWallet();
             
           if (error && error.code !== 'PGRST116') {
             console.error('Error syncing wallet:', error);
