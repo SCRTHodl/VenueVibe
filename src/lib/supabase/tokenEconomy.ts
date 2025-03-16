@@ -1,19 +1,19 @@
 import { supabase } from '../supabase';
+import { getAdminClient } from '../../utils/supabaseClient';
 
-// Use main Supabase instance for SottoTokenized
 // The token economy schema is defined in the .env file
 const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
 
 // Log initialization status for debugging
 if (import.meta.env.DEV) {
-  console.log('SottoTokenized using main Supabase with schema:', tokenEconomySchema);
+  console.log('Token economy using schema:', tokenEconomySchema);
 }
 
-// Use the main Supabase instance for SottoTokenized
-export const tokenEconomySupabase = supabase;
+// Get the admin client for token economy operations
+export const tokenEconomyAdmin = getAdminClient();
 
-// Re-export the main supabase instance for admin operations
-export const tokenEconomyAdmin = supabase;
+// Regular client (only for public schema operations)
+export const tokenEconomySupabase = supabase;
 
 // No need for heartbeat as we're using the main Supabase instance
 
@@ -56,9 +56,10 @@ export const getUserTokenBalance = async (userId: string): Promise<number> => {
       }
     }
     
-    // Otherwise, fetch from Supabase
-    const { data, error } = await tokenEconomySupabase
-      .from(`${tokenEconomySchema}.user_token_balances`)
+    // Otherwise, fetch from Supabase using admin client for token_economy schema
+    const { data, error } = await tokenEconomyAdmin
+      .schema(tokenEconomySchema)
+      .from('user_token_balances')
       .select('balance')
       .eq('user_id', userId)
       .single();
@@ -86,8 +87,10 @@ export const createTokenTransaction = async (
   transaction: Omit<TokenTransaction, 'id' | 'created_at' | 'status'>
 ): Promise<TokenTransaction | null> => {
   try {
-    const { data, error } = await tokenEconomySupabase
-      .from(`${tokenEconomySchema}.token_transactions`)
+    // Use admin client for token transactions
+    const { data, error } = await tokenEconomyAdmin
+      .schema(tokenEconomySchema)
+      .from('token_transactions')
       .insert([{
         ...transaction,
         status: 'pending',
@@ -116,8 +119,10 @@ export const createTokenTransaction = async (
 // Get story token data
 export const getStoryTokenData = async (storyId: string) => {
   try {
-    const { data, error } = await tokenEconomySupabase
-      .from(`${tokenEconomySchema}.story_token_data`)
+    // Use admin client for token_economy schema access
+    const { data, error } = await tokenEconomyAdmin
+      .schema(tokenEconomySchema)
+      .from('story_token_data')
       .select('*')
       .eq('story_id', storyId)
       .single();

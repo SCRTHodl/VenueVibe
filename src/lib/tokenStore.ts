@@ -1,6 +1,11 @@
 import { supabase } from './supabase';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getAdminClient } from '../utils/supabaseClient';
+
+// Get admin client for token_economy schema access
+const tokenEconomyAdmin = getAdminClient();
+const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
 
 // Update token economy constants to adjust costs and rewards
 export const TOKEN_ECONOMY = {
@@ -90,8 +95,9 @@ export const useTokenStore = create<TokenState>()(
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session?.user) {
-            const { data, error } = await supabase
-              .from('token_economy.user_wallets')
+            const { data, error } = await tokenEconomyAdmin
+              .schema(tokenEconomySchema)
+              .from('user_wallets')
               .select('*')
               .eq('user_id', session.user.id)
               .single();

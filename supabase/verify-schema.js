@@ -25,8 +25,15 @@ const requiredTables = [
 async function verifyTable(schema, tableName) {
   try {
     // Try to select from the table - this will error if it doesn't exist
-    const { data, error } = await supabase
-      .from(`${schema === 'public' ? '' : schema + '.'}${tableName}`)
+    // Use the schema method for non-public schemas
+    let query;
+    if (schema === 'public') {
+      query = supabase.from(tableName);
+    } else {
+      query = supabase.schema(schema).from(tableName);
+    }
+    
+    const { data, error } = await query
       .select('count')
       .limit(1)
       .maybeSingle();

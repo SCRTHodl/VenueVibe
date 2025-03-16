@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { getAdminClient } from '../../utils/supabaseClient';
 import { UserStory, ModerationResult } from '../../types';
 import { TOKEN_ECONOMY } from '../tokenStore';
 import { isContentTypeSupported, SupportedContentType } from '../ai/index';
@@ -16,9 +17,12 @@ export const setupPremiumContent = async (
   
   console.log('[StoryPublisher] Creating premium content with cost:', tokenCost);
   try {
-    // Ensure story_token_data entry exists
-    const { error } = await supabase
-      .from('token_economy.story_token_data')
+    // Ensure story_token_data entry exists using admin client for token_economy schema
+    const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+    const adminClient = getAdminClient();
+    const { error } = await adminClient
+      .schema(tokenEconomySchema)
+      .from('story_token_data')
       .upsert({
         story_id: storyId,
         creator_id: userId,

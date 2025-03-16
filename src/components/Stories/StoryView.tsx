@@ -128,10 +128,16 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
           // Ensure story.id is a valid UUID
           const storyId = story.id.includes('-') ? story.id : crypto.randomUUID();
           
-          const { error } = await supabase.rpc('record_story_view_v3', {
-            p_story_id: storyId,
-            p_user_id: userId
-          });
+          // Get the token economy schema from env
+          const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+          
+          // Use schema-qualified RPC call
+          const { error } = await supabase
+            .schema(tokenEconomySchema)
+            .rpc('record_story_view_v3', {
+              p_story_id: storyId,
+              p_user_id: userId
+            });
 
           if (error) throw error;
 

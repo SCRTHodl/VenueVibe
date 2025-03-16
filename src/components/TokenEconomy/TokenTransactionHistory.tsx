@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, ArrowUpRight, ArrowDownLeft, Gift, Coins, RefreshCw } from 'lucide-react';
-import { tokenEconomySupabase, TokenTransaction } from '../../lib/supabase/tokenEconomy';
+import { tokenEconomyAdmin, TokenTransaction } from '../../lib/supabase/tokenEconomy';
 
 interface TokenTransactionHistoryProps {
   userId: string;
@@ -16,13 +16,17 @@ export const TokenTransactionHistory: React.FC<TokenTransactionHistoryProps> = (
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Define token economy schema
+  const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+
   useEffect(() => {
     const fetchTransactions = async () => {
       setIsLoading(true);
       try {
         // Fetch transactions where the user is either sender or recipient
-        const { data, error } = await tokenEconomySupabase
-          .from('token_economy.token_transactions')
+        const { data, error } = await tokenEconomyAdmin
+          .schema(tokenEconomySchema)
+          .from('token_transactions')
           .select('*')
           .or(`user_id.eq.${userId},recipient_id.eq.${userId}`)
           .order('created_at', { ascending: false })
@@ -41,13 +45,13 @@ export const TokenTransactionHistory: React.FC<TokenTransactionHistoryProps> = (
     fetchTransactions();
 
     // Subscribe to transaction updates
-    const subscription = tokenEconomySupabase
+    const subscription = tokenEconomyAdmin
       .channel(`user-transactions-${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'token_economy',
+          schema: tokenEconomySchema,
           table: 'token_transactions',
           filter: `user_id=eq.${userId}`,
         },
@@ -70,7 +74,7 @@ export const TokenTransactionHistory: React.FC<TokenTransactionHistoryProps> = (
       .subscribe();
 
     return () => {
-      tokenEconomySupabase.removeChannel(subscription);
+      tokenEconomyAdmin.removeChannel(subscription);
     };
   }, [userId, limit]);
 

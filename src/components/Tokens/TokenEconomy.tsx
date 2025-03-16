@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import { supabase } from '../../lib/supabase';
-import { Coins, Gift, ArrowRight, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { Coins, ArrowRight, TrendingUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // Following the memory about token_economy schema within main Supabase instance
@@ -31,6 +31,9 @@ const TokenEconomy: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('wallet');
   
+  // Define token economy schema
+  const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+  
   // Load token transactions and products
   useEffect(() => {
     const loadTokenData = async () => {
@@ -41,7 +44,8 @@ const TokenEconomy: React.FC = () => {
         
         // Load transactions from token_economy schema
         const { data: transactionsData, error: transactionsError } = await supabase
-          .from('token_economy.transactions')
+          .schema(tokenEconomySchema)
+          .from('transactions')
           .select('*')
           .eq('user_id', currentUser.id)
           .order('created_at', { ascending: false })
@@ -51,7 +55,8 @@ const TokenEconomy: React.FC = () => {
         
         // Load available token products
         const { data: productsData, error: productsError } = await supabase
-          .from('token_economy.products')
+          .schema(tokenEconomySchema)
+          .from('products')
           .select('*')
           .eq('available', true);
         
@@ -83,7 +88,9 @@ const TokenEconomy: React.FC = () => {
       setIsLoading(true);
       
       // Begin a transaction
-      const { error: purchaseError } = await supabase.rpc('token_economy.purchase_product', {
+      const { error: purchaseError } = await supabase
+        .schema(tokenEconomySchema)
+        .rpc('purchase_product', {
         user_id: currentUser.id,
         product_id: product.id,
         amount: product.price
@@ -131,7 +138,9 @@ const TokenEconomy: React.FC = () => {
       setIsLoading(true);
       
       // Transfer tokens using token_economy schema function
-      const { error: transferError } = await supabase.rpc('token_economy.transfer_tokens', {
+      const { error: transferError } = await supabase
+        .schema(tokenEconomySchema)
+        .rpc('transfer_tokens', {
         sender_id: currentUser.id,
         recipient_id: recipientId,
         amount: amount

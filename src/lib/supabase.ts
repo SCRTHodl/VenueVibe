@@ -299,10 +299,13 @@ export const updateUserTokenBalance = async (userId: string, amount: number): Pr
     // Fall back to token_economy schema if needed
     console.log('Falling back to token_economy schema for updating token balance');
     const adminClient = getAdminClient();
-    const { data: teData, error: teError } = await adminClient.rpc('token_economy.update_user_balance', {
-      p_user_id: userId,
-      p_amount: amount
-    });
+    const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+    const { data: teData, error: teError } = await adminClient
+      .schema(tokenEconomySchema)
+      .rpc('update_user_balance', {
+        p_user_id: userId,
+        p_amount: amount
+      });
 
     if (teError) {
       console.error('Error updating token balance in token_economy:', teError);
@@ -468,7 +471,10 @@ export const getTokenEconomyStats = async (): Promise<Record<string, any> | null
     
     // Use admin client to get stats
     const adminClient = getAdminClient();
-    const { data, error } = await adminClient.rpc('token_economy.get_economy_stats');
+    const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+    const { data, error } = await adminClient
+      .schema(tokenEconomySchema)
+      .rpc('get_economy_stats');
     
     if (error) {
       console.error('Error fetching token economy stats:', error);
@@ -737,7 +743,7 @@ export const sendMessage = async (groupId: string, channel: string, content: str
       user_name: messageData.user.name,
       content: messageData.text,  // Store the text in content field in DB
       created_at: messageData.timestamp,
-      user_avatar: messageData.user.avatar || ''
+      user_avatar: (messageData.user as any).avatar || ''
     };
     
     const { data, error } = await supabase

@@ -44,8 +44,11 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  // Initialize Stripe
-  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
+  // Initialize Stripe with proper error handling
+  const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+  const stripePromise = stripePublicKey 
+    ? loadStripe(stripePublicKey) 
+    : Promise.reject(new Error('Stripe public key not found in environment variables'));
 
   // Get token store functions
   const { 
@@ -68,7 +71,12 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
     const fetchItems = async () => {
       setIsLoading(true);
       try {
+        // Use the tokenEconomySchema from environment variables
+        const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+        
+        // Properly access the token_economy schema
         const { data, error } = await supabase
+          .schema(tokenEconomySchema)
           .from('digital_items')
           .select('*');
           
@@ -79,6 +87,7 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
         }
       } catch (error) {
         console.error('Error fetching items:', error);
+        // Fallback to sample items if table doesn't exist yet
         setItems(SAMPLE_ITEMS);
       } finally {
         setIsLoading(false);
@@ -103,7 +112,8 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
     const rarityOrder = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
     
     switch (sortOrder) {
-      case 'featured':
+      case 'price-desc':
+        // Fallback for 'featured' sorting - use price-desc instead
         // Spring Training badge always first, then by rarity
         if (a.id === 'spring-training-2025') return -1;
         if (b.id === 'spring-training-2025') return 1;

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
+import { getAdminClient } from '../utils/supabaseClient';
 import { User, ActivityEvent, AppTheme } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { TEST_USERS } from '../mockData';
@@ -170,9 +171,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (userError) throw userError;
         
-        // Get user token balance
-        const { data: tokenData } = await supabase
-          .from('token_economy.tokens')
+        // Get user token balance using admin client for token_economy schema
+        const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+        const adminClient = getAdminClient();
+        const { data: tokenData } = await adminClient
+          .schema(tokenEconomySchema)
+          .from('tokens')
           .select('balance')
           .eq('user_id', data.user.id)
           .single();
@@ -242,9 +246,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (profileError) throw profileError;
         
-        // Initialize token balance
-        const { error: tokenError } = await supabase
-          .from('token_economy.tokens')
+        // Initialize token balance using admin client for token_economy schema
+        const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+        const adminClient = getAdminClient();
+        const { error: tokenError } = await adminClient
+          .schema(tokenEconomySchema)
+          .from('tokens')
           .insert([
             {
               user_id: data.user.id,

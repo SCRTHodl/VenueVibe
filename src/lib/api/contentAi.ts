@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { getAdminClient } from '../../utils/supabaseClient';
 import { 
   analyzeContent, 
   getContentRecommendations, 
@@ -155,9 +156,12 @@ export const contentAiApi = {
         );
       }
       
-      // Get token balance from token_economy schema
-      const { data, error } = await supabase
-        .from('token_economy.user_token_balances')
+      // Get token balance from token_economy schema using admin client
+      const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+      const adminClient = getAdminClient();
+      const { data, error } = await adminClient
+        .schema(tokenEconomySchema)
+        .from('user_token_balances')
         .select('balance')
         .eq('user_id', user.id)
         .single();
