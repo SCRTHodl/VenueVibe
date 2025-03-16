@@ -12,11 +12,25 @@ This document provides instructions for deploying the app to Vercel and troubles
 
 Ensure the following environment variables are set in your Vercel project:
 
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous key for client-side access |
-| `VITE_TOKEN_ECONOMY_SCHEMA` | The schema name for the token economy (default: 'token_economy') |
+| Variable | Description | Required |
+|----------|-------------|:--------:|
+| `VITE_SUPABASE_URL` | Your Supabase project URL | ✅ |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous key for client-side access | ✅ |
+| `VITE_SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key for server-side operations | ✅ |
+| `VITE_TOKEN_ECONOMY_SCHEMA` | The schema name for the token economy (default: 'token_economy') | ✅ |
+| `VITE_STRIPE_PUBLIC_KEY` | Your Stripe public key for payment processing | ✅ |
+| `VITE_MAPBOX_TOKEN` | Your Mapbox access token for map features | ✅ |
+
+### Setting Environment Variables in Vercel
+
+1. Go to your Vercel dashboard and select your project
+2. Click on the "Settings" tab
+3. In the left sidebar, click on "Environment Variables"
+4. Add each variable from the table above with its corresponding value from your local `.env` file
+5. Click "Save" to apply your changes
+6. Redeploy your application by clicking "Deployments" in the left sidebar, selecting your latest deployment, and clicking "Redeploy"
+
+> **Important**: The errors you're seeing ("Supabase URL not configured" and "supabaseKey is required") indicate that these environment variables are missing from your Vercel deployment. Make sure to add them exactly as they appear in your local `.env` file.
 
 ## Deployment Steps
 
