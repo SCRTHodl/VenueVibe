@@ -26,31 +26,28 @@ if [ ! -f "./public/_headers" ]; then
     echo "  Content-Security-Policy: script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.supabase.co; worker-src 'self' blob:;" >> ./public/_headers
 fi
 
-# Ensure vercel.json exists
-if [ ! -f "./vercel.json" ]; then
-    echo "⚙️ Creating vercel.json configuration..."
-    cat > ./vercel.json << EOL
-{
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.supabase.co; worker-src 'self' blob:;"
-        }
-      ]
-    }
-  ]
-}
-EOL
-fi
+# We've already created and updated vercel.json and netlify.toml
+echo "⚙️ Using existing vercel.json configuration with updated CSP settings..."
 
 # Set up environment variables on Vercel
 echo "🔐 Setting up environment variables..."
+echo "Please enter your Supabase URL:"
 vercel env add VITE_SUPABASE_URL
+
+echo "Please enter your Supabase Anonymous Key:"
 vercel env add VITE_SUPABASE_ANON_KEY
-vercel env add VITE_TOKEN_ECONOMY_SCHEMA token_economy
+
+echo "Please enter your Supabase Service Role Key (required for token economy):"
+vercel env add VITE_SUPABASE_SERVICE_ROLE_KEY
+
+echo "Setting token economy schema to 'token_economy':"
+vercel env add VITE_TOKEN_ECONOMY_SCHEMA -y token_economy
+
+echo "Please enter your Stripe Public Key:"
+vercel env add VITE_STRIPE_PUBLIC_KEY
+
+echo "Please enter your Mapbox Token:"
+vercel env add VITE_MAPBOX_TOKEN
 
 # Deploy to Vercel
 echo "🚀 Deploying to Vercel..."

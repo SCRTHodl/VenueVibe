@@ -226,6 +226,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: name,
+          }
+        }
       });
       
       if (error) throw error;
@@ -291,7 +297,29 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error signing up:', error);
-      toast.error(error instanceof Error ? error.message : 'Signup failed');
+      
+      // More detailed error logging to help troubleshoot
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if ('code' in error) {
+          console.error('Error code:', (error as any).code);
+        }
+      }
+      
+      // Provide more specific error messages based on the error
+      if (error instanceof Error) {
+        if (error.message.includes('email')) {
+          toast.error('Email verification failed. Please check your email configuration.');
+        } else if (error.message.includes('already registered')) {
+          toast.error('This email is already registered. Please try logging in.');
+        } else if (error.message.includes('token')) {
+          toast.error('Error initializing token balance. Please try again.');
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error('Signup failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
