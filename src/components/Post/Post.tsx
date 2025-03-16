@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { Heart, MessageSquare, Bookmark, Share2, MapPin, Clock, MoreHorizontal, Send, Award, Coins } from 'lucide-react';
-import { formatTimeAgo } from '../../lib/utils';
+import { formatTimeAgo, getCategoryColor } from '../../lib/utils';
 import { useTokenStore, TOKEN_ECONOMY } from '../../lib/tokenStore';
 import type { Post as PostType, Comment } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 interface PostProps {
   post: PostType;
 }
 
 export const Post: React.FC<PostProps> = ({ post }) => {
-  const [isLiked, setIsLiked] = useState(post.isLiked);
-  const [isSaved, setIsSaved] = useState(post.isSaved);
+  const [isLiked, setIsLiked] = useState(post.isLiked || false);
+  const [isSaved, setIsSaved] = useState(post.isSaved || false);
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
   const [commentText, setCommentText] = useState('');
   const [isCommentLoading, setIsCommentLoading] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -47,7 +48,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       );
       
       // Simulate share functionality
-      alert(`Sharing post from ${post.userName} about ${post.venue.name}`);
+      toast.success(`Sharing post from ${post.userName || 'User'} about ${post.venue?.name || 'a location'}`);
     } catch (error) {
       console.error('Error rewarding share:', error);
     }
@@ -104,20 +105,24 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       const demoComments: Comment[] = [
         {
           id: `comment-${post.id}-1`,
+          text: "This place has the best happy hour in town!",
           content: "This place has the best happy hour in town!",
           userId: "user-demo-1",
           userName: "Emily",
           userAvatar: "E",
           createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
+          postId: post.id,
           likes: 4
         },
         {
           id: `comment-${post.id}-2`,
+          text: "Going there tonight. Anyone want to join?",
           content: "Going there tonight. Anyone want to join?",
           userId: "user-demo-2",
           userName: "Jordan",
           userAvatar: "J",
           createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+          postId: post.id,
           likes: 2
         }
       ];
@@ -133,27 +138,35 @@ export const Post: React.FC<PostProps> = ({ post }) => {
     
     const newComment: Comment = {
       id: `comment-${post.id}-${Date.now()}`,
+      text: commentText,
       content: commentText,
       userId: "user-current",
       userName: "You",
       userAvatar: "Y",
       createdAt: new Date().toISOString(),
+      postId: post.id,
       likes: 0
     };
     
     setComments(prev => [...prev, newComment]);
     setCommentText('');
+    toast.success('Comment added successfully!');
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
+  const getCategoryColor = (category?: string) => {
+    if (!category) return 'bg-gray-600 text-gray-100';
+    
+    const colors: Record<string, string> = {
       italian: 'bg-red-600 text-red-100',
       bar: 'bg-amber-600 text-amber-100',
       gastropub: 'bg-blue-600 text-blue-100',
       'wine-bar': 'bg-purple-600 text-purple-100',
-      latin: 'bg-emerald-600 text-emerald-100'
+      latin: 'bg-emerald-600 text-emerald-100',
+      restaurant: 'bg-orange-600 text-orange-100',
+      cafe: 'bg-yellow-600 text-yellow-100',
+      club: 'bg-pink-600 text-pink-100'
     };
-    return colors[category as keyof typeof colors] || 'bg-gray-600 text-gray-100';
+    return colors[category] || 'bg-gray-600 text-gray-100';
   };
   
   return (
@@ -168,9 +181,13 @@ export const Post: React.FC<PostProps> = ({ post }) => {
             <div className="font-medium text-white">{post.userName}</div>
             <div className="text-xs text-gray-400 flex items-center gap-1">
               {formatTimeAgo(new Date(post.createdAt))}
-              <span className="px-1">•</span>
-              <MapPin size={12} className="inline" />
-              <span className="hover:text-blue-400 cursor-pointer">{post.venue.name}</span>
+              {post.venue && (
+                <>
+                  <span className="px-1">•</span>
+                  <MapPin size={12} className="inline" />
+                  <span className="hover:text-blue-400 cursor-pointer">{post.venue.name}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -181,16 +198,18 @@ export const Post: React.FC<PostProps> = ({ post }) => {
 
       {/* Content */}
       <div className="p-4">
-        <p className="text-white whitespace-pre-wrap mb-3">{post.content}</p>
+        <p className="text-white whitespace-pre-wrap mb-3">{post.content || post.text}</p>
         
         {/* Tags */}
-        <div className="flex flex-wrap gap-1 mb-3">
-          {post.tags.map(tag => (
-            <span key={tag} className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">
-              #{tag}
-            </span>
-          ))}
-        </div>
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {post.tags.map(tag => (
+              <span key={tag} className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Photo */}
@@ -198,7 +217,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
         <div className="aspect-video w-full">
           <img 
             src={post.photos[0]} 
-            alt={`Post by ${post.userName}`}
+            alt={`Post by ${post.userName || 'User'}`}
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -206,44 +225,50 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       )}
 
       {/* Venue Info */}
-      <div className="p-4 bg-blue-900/20 border-t border-b border-blue-900/10">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(post.venue.category)}`}>
-              {post.venue.category}
-            </span>
-            {post.venue.rating && (
-              <div className="flex items-center gap-0.5 text-yellow-400">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                  <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-                </svg>
-                <span className="text-yellow-400 font-medium">{post.venue.rating.toFixed(1)}</span>
+      {post.venue && (
+        <div className="p-4 bg-blue-900/20 border-t border-b border-blue-900/10">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              {post.venue.category && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(post.venue.category)}`}>
+                  {post.venue.category}
+                </span>
+              )}
+              {post.venue.rating !== undefined && (
+                <div className="flex items-center gap-0.5 text-yellow-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-yellow-400 font-medium">{post.venue.rating.toFixed(1)}</span>
+                </div>
+              )}
+            </div>
+            {post.venue.time && (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <Clock size={12} className="text-gray-400" />
+                <span>{post.venue.time.replace('Opens ', '')}</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Clock size={12} className="text-gray-400" />
-            <span>{post.venue.time.replace('Opens ', '')}</span>
-          </div>
+          
+          {post.venue.popularTimes && (
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <div className={`px-2 py-1 rounded-full ${
+                post.venue.popularTimes.now === 'Very Busy' 
+                  ? 'bg-red-600/20 text-red-200' 
+                  : post.venue.popularTimes.now === 'Busy'
+                    ? 'bg-orange-600/20 text-orange-200'
+                    : 'bg-green-600/20 text-green-200'
+              }`}>
+                {post.venue.popularTimes.now} now
+              </div>
+              <div className="text-gray-400">
+                Wait time: {post.venue.popularTimes.waitTime}
+              </div>
+            </div>
+          )}
         </div>
-        
-        {post.venue.popularTimes && (
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <div className={`px-2 py-1 rounded-full ${
-              post.venue.popularTimes.now === 'Very Busy' 
-                ? 'bg-red-600/20 text-red-200' 
-                : post.venue.popularTimes.now === 'Busy'
-                  ? 'bg-orange-600/20 text-orange-200'
-                  : 'bg-green-600/20 text-green-200'
-            }`}>
-              {post.venue.popularTimes.now} now
-            </div>
-            <div className="text-gray-400">
-              Wait time: {post.venue.popularTimes.waitTime}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Actions */}
       <div className="px-4 py-3 flex items-center justify-between">
@@ -254,7 +279,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
             whileTap={{ scale: 0.95 }}
           >
             <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
-            <span className="text-sm font-medium">{isLiked ? post.likes + 1 : post.likes}</span>
+            <span className="text-sm font-medium">{isLiked ? (post.likes || 0) + 1 : (post.likes || 0)}</span>
           </motion.button>
           <motion.button 
             className={`flex items-center gap-2 ${showComments ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
@@ -262,7 +287,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
             whileTap={{ scale: 0.95 }}
           >
             <MessageSquare size={20} />
-            <span className="text-sm font-medium">{post.comments}</span>
+            <span className="text-sm font-medium">{comments.length}</span>
           </motion.button>
           <motion.button 
             className="flex items-center gap-2 text-gray-400 hover:text-[--color-accent-primary]"
@@ -345,7 +370,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
                               {formatTimeAgo(new Date(comment.createdAt))}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-300">{comment.content}</p>
+                          <p className="text-sm text-gray-300">{comment.text || comment.content}</p>
                         </div>
                         <div className="flex items-center gap-4 ml-2 mt-1">
                           <button className="text-xs text-gray-400 hover:text-red-400 flex items-center gap-1">

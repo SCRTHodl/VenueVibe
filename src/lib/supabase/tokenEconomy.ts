@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase } from '../supabase';
 
 // Use main Supabase instance for SottoTokenized
 // The token economy schema is defined in the .env file
@@ -25,7 +24,9 @@ export type TokenTransactionType =
   | 'engagement_reward' 
   | 'tip' 
   | 'purchase' 
-  | 'nft_minting';
+  | 'nft_minting'
+  | 'premium_content_unlock'
+  | 'premium_content_earnings';
 
 // Token transaction interface
 export interface TokenTransaction {
@@ -57,7 +58,7 @@ export const getUserTokenBalance = async (userId: string): Promise<number> => {
     
     // Otherwise, fetch from Supabase
     const { data, error } = await tokenEconomySupabase
-      .from('user_token_balances')
+      .from(`${tokenEconomySchema}.user_token_balances`)
       .select('balance')
       .eq('user_id', userId)
       .single();
@@ -86,7 +87,7 @@ export const createTokenTransaction = async (
 ): Promise<TokenTransaction | null> => {
   try {
     const { data, error } = await tokenEconomySupabase
-      .from('token_transactions')
+      .from(`${tokenEconomySchema}.token_transactions`)
       .insert([{
         ...transaction,
         status: 'pending',
@@ -116,7 +117,7 @@ export const createTokenTransaction = async (
 export const getStoryTokenData = async (storyId: string) => {
   try {
     const { data, error } = await tokenEconomySupabase
-      .from('story_token_data')
+      .from(`${tokenEconomySchema}.story_token_data`)
       .select('*')
       .eq('story_id', storyId)
       .single();
@@ -205,7 +206,7 @@ export const subscribeToTokenBalanceChanges = (
       'postgres_changes',
       {
         event: '*',
-        schema: 'public',
+        schema: tokenEconomySchema,
         table: 'user_token_balances',
         filter: `user_id=eq.${userId}`,
       },
@@ -223,4 +224,133 @@ export const subscribeToTokenBalanceChanges = (
   return () => {
     tokenEconomySupabase.removeChannel(subscription);
   };
+};
+
+/**
+ * Check if content is premium and if user has access
+ * @param userId User ID checking for access
+ * @param storyId Story ID to check
+ * @returns Object with isPremium and hasAccess flags
+ */
+export const checkPremiumContentAccess = async (userId: string, storyId: string) => {
+  try {
+    // First check if the content is premium
+    const storyData = await getStoryTokenData(storyId);
+    
+    if (!storyData || !storyData.premium_content) {
+      return { isPremium: false, hasAccess: true, cost: 0 };
+    }
+    
+    // Content is premium, check if user has already unlocked it
+    const { data, error } = await tokenEconomySupabase
+      .from(`${tokenEconomySchema}.content_access`)
+      .select('*')
+      .eq('user_id', userId)
+      .eq('content_id', storyId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error checking content access:', error);
+    }
+    
+    return {
+      isPremium: true,
+      hasAccess: !!data,
+      cost: storyData.unlock_cost || 15,
+      creatorId: storyData.creator_id
+    };
+  } catch (error) {
+    console.error('Error in checkPremiumContentAccess:', error);
+    return { isPremium: false, hasAccess: true, cost: 0 };
+  }
+};
+
+/**
+ * Unlock premium content by spending tokens
+ * @param userId User ID unlocking the content
+ * @param storyId Story ID to unlock
+ * @param creatorId Creator ID to receive earnings
+ * @param cost Number of tokens to spend
+ */
+export const unlockPremiumContent = async (
+  userId: string,
+  storyId: string,
+  creatorId: string,
+  cost: number
+) => {
+  try {
+    // Check if user already has access
+    const { isPremium, hasAccess } = await checkPremiumContentAccess(userId, storyId);
+    
+    if (!isPremium || hasAccess) {
+      return { success: true, message: 'Content already accessible' };
+    }
+    
+    // Check user's token balance
+    const userBalance = await getUserTokenBalance(userId);
+    
+    if (userBalance < cost) {
+      return {
+        success: false,
+        message: `Not enough tokens. You need ${cost} tokens but have ${userBalance}.`
+      };
+    }
+    
+    // Deduct tokens from user
+    const spendTransaction = await createTokenTransaction({
+      user_id: userId,
+      amount: -cost,
+      transaction_type: 'premium_content_unlock',
+      story_id: storyId,
+      metadata: { storyId, cost }
+    });
+    
+    if (!spendTransaction) {
+      return { success: false, message: 'Transaction failed' };
+    }
+    
+    // Calculate creator earnings (80% of cost)
+    const creatorEarnings = Math.floor(cost * 0.8);
+    
+    // Credit creator
+    if (creatorId) {
+      await createTokenTransaction({
+        user_id: creatorId,
+        amount: creatorEarnings,
+        transaction_type: 'premium_content_earnings',
+        story_id: storyId,
+        metadata: { from_user: userId, storyId }
+      });
+    }
+    
+    // Record the access
+    const { error } = await tokenEconomySupabase
+      .from(`${tokenEconomySchema}.content_access`)
+      .insert({
+        user_id: userId,
+        content_id: storyId,
+        access_type: 'premium_content',
+        tokens_spent: cost
+      });
+    
+    if (error) {
+      console.error('Error recording content access:', error);
+      return { success: false, message: 'Failed to record access' };
+    }
+    
+    // Update story unlocks counter
+    await tokenEconomySupabase
+      .from(`${tokenEconomySchema}.story_token_data`)
+      .update({ unlocks_count: tokenEconomySupabase.rpc('increment', { value: 1 }) })
+      .eq('story_id', storyId);
+    
+    return {
+      success: true,
+      message: 'Content unlocked successfully',
+      newBalance: userBalance - cost
+    };
+  } catch (error) {
+    console.error('Error in unlockPremiumContent:', error);
+    return { success: false, message: 'An error occurred' };
+  }
 };

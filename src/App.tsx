@@ -1,8 +1,44 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Map, ArrowLeft, Sparkles, QrCode, Palette } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
 import { Feed } from './components/Feed/Feed';
+import { getTokenBalance } from './lib/supabase/tokenEconomy';
 import { TEST_GROUPS, MOCK_POSTS, EVENT_THEMES } from './constants';
+
+// App statistics helper function
+async function getAppStats() {
+  try {
+    // Use mock data for demo instead of real tables
+    // This prevents 404 errors when tables don't exist yet
+    console.log('Fetching app stats with mock data for development');
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Create mock stats for demo purposes
+    return {
+      userCount: 342,
+      storyCount: 1289,
+      topBalances: [
+        { user_id: 'user1', balance: 2500 },
+        { user_id: 'user2', balance: 1800 },
+        { user_id: 'user3', balance: 1250 },
+        { user_id: 'user4', balance: 950 },
+        { user_id: 'user5', balance: 780 }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error fetching app stats:', error);
+    return {
+      userCount: 0,
+      storyCount: 0,
+      topBalances: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+}
 import { MobileNavBar } from './components/Navigation/MobileNavBar';
 import { Stories } from './components/Stories/Stories';
 import { Profile } from './components/Profile/Profile';
@@ -26,7 +62,7 @@ import { AdminLayout } from './components/Admin/AdminLayout';
 import { CreatePost } from './components/Post/CreatePost';
 
 // Lazy load the map component to improve initial load time
-const MapView = lazy(() => import('./components/Map/MapView').then(module => ({ default: module.MapView })));
+const MapView = lazy(() => import('./components/Map'));
 
 import type { 
   Group, 
@@ -55,7 +91,9 @@ function App() {
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [appStats, setAppStats] = useState<AppStatsType>({ subscriberCount: 0, version: '1.0.0' });
   const [isMapVisible, setIsMapVisible] = useState(false);
+  // Only load the map when it's actually needed
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -65,6 +103,7 @@ function App() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showContentTypeModal, setShowContentTypeModal] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<{id: string, name: string} | null>(null);
   
   // New state for theme customizer, invite code and events
   const [activeEventTheme, setActiveEventTheme] = useState<EventTheme | null>(null);
@@ -306,13 +345,60 @@ function App() {
     setShowGroupDetail(true);
     setIsMapVisible(false);
   };
-
-  const toggleMapView = () => {
-    setIsMapVisible(!isMapVisible);
-    if (!mapLoaded && !isMapVisible) {
-      setMapLoaded(true);
+  
+  // Handle viewing venue posts and chats
+  const handleViewVenuePosts = (venueId: string, venueName: string) => {
+    setSelectedVenue({ id: venueId, name: venueName });
+    setIsMapVisible(false);
+    setActiveTab('home');
+    
+    // Scroll to venue-specific posts in the feed
+    setTimeout(() => {
+      if (feedRef.current) {
+        // Scroll to any venue-specific content
+        feedRef.current.scrollTop = 0;
+        
+        // In a real app, you would filter the feed for venue-specific posts
+        // For now, we'll just display a message
+        toast.success(`Viewing posts for ${venueName}`);
+      }
+    }, 300);
+  };
+  
+  // Clear venue selection to return to main feed
+  const clearVenueSelection = () => {
+    setSelectedVenue(null);
+    toast.success('Showing all posts');
+    
+    // Scroll back to top of feed
+    if (feedRef.current) {
+      feedRef.current.scrollTop = 0;
     }
   };
+
+  const toggleMapView = () => {
+    if (!mapLoaded && !isMapVisible) {
+      // Start loading the map
+      setMapLoading(true);
+      setMapLoaded(true);
+    }
+    setIsMapVisible(!isMapVisible);
+  };
+  
+  // Handle map loading and initialization
+  useEffect(() => {
+    if (mapLoading) {
+      // Here we could add any data fetching required for the map
+      // such as venues, markers, etc.
+      
+      // This setTimeout simulates actual data loading, but prevents the spinner flash
+      const timer = setTimeout(() => {
+        setMapLoading(false);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [mapLoading]);
   
   const handleInviteCodeSuccess = (inviteCode: string, theme?: EventTheme) => {
     // Close modal
@@ -427,6 +513,8 @@ function App() {
               groups={groups} 
               onGroupSelect={handleGroupSelect}
               onMapViewToggle={toggleMapView}
+              selectedVenue={selectedVenue}
+              onClearVenueSelection={clearVenueSelection}
             />
           </div>
         );
@@ -590,50 +678,53 @@ function App() {
         {renderTabContent()}
         
         {/* Map Overlay */}
-        <AnimatePresence>
-          {(isMapVisible || mapLoaded) && (
+        <AnimatePresence mode="wait">
+          {isMapVisible && (
             <motion.div 
               ref={mapContainerRef}
               className="absolute inset-0 z-30"
               initial={{ y: '100%' }}
-              animate={{ y: isMapVisible ? 0 : '100%' }}
+              animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              <Suspense fallback={
+              {!mapLoaded ? (
                 <div className="h-full flex items-center justify-center bg-[--color-bg-primary]">
                   <div className="flex flex-col items-center">
                     <div className="premium-loader"></div>
                     <p className="mt-4 text-white">Loading Map...</p>
                   </div>
                 </div>
-              }>
-                {mapError ? (
-                  <div className="h-full flex items-center justify-center bg-[--color-bg-secondary]">
-                    <div className="text-center p-8 premium-card">
-                      <h2 className="text-2xl font-bold text-white mb-4">Map Configuration Required</h2>
-                      <p className="text-gray-300">{mapError}</p>
-                      <p className="text-sm text-gray-400 mt-2">Please add your Mapbox token to the .env file.</p>
+              ) : (
+                <Suspense fallback={null}>
+                  {mapError ? (
+                    <div className="h-full flex items-center justify-center bg-[--color-bg-secondary]">
+                      <div className="text-center p-8 premium-card">
+                        <h2 className="text-2xl font-bold text-white mb-4">Map Configuration Required</h2>
+                        <p className="text-gray-300">{mapError}</p>
+                        <p className="text-sm text-gray-400 mt-2">Please add your Mapbox token to the .env file.</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <MapView
-                    viewState={viewState}
-                    onMove={evt => setViewState(evt.viewState)}
-                    mapboxToken={mapboxToken}
-                    groups={groups}
-                    groupActivities={groupActivities}
-                    userLocations={userLocations}
-                    selectedGroup={selectedGroup}
-                    onGroupSelect={handleGroupSelect}
-                    userHeatmapData={userHeatmapData}
-                    userHeatmapLayer={userHeatmapLayer}
-                    appStats={appStats}
-                    activityEvents={activityEvents}
-                    onClose={() => setIsMapVisible(false)}
-                  />
-                )}
-              </Suspense>
+                  ) : (
+                    <MapView
+                      viewState={viewState}
+                      onMove={evt => setViewState(evt.viewState)}
+                      mapboxToken={mapboxToken}
+                      groups={groups}
+                      groupActivities={groupActivities}
+                      userLocations={userLocations}
+                      selectedGroup={selectedGroup}
+                      onGroupSelect={handleGroupSelect}
+                      userHeatmapData={userHeatmapData}
+                      userHeatmapLayer={userHeatmapLayer}
+                      appStats={appStats}
+                      activityEvents={activityEvents}
+                      onClose={() => setIsMapVisible(false)}
+                      onViewVenuePosts={handleViewVenuePosts}
+                    />
+                  )}
+                </Suspense>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

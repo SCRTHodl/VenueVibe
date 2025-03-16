@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
-import { Shield, Users, Settings, Brain, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Shield, Users, Settings, Brain, LayoutDashboard, ChevronRight, Sparkles, BarChart2 } from 'lucide-react';
 import { ModerationDashboard } from './ModerationDashboard';
 import { UserManagement } from './UserManagement';
 import { AdminSettings } from './AdminSettings';
 import { AIInstructionsManager } from './AIInstructionsManager';
+import { FeaturedContentManager } from './FeaturedContentManager';
+import { AIContentPerformance } from './AIContentPerformance';
 
 interface AdminLayoutProps {
   onClose?: () => void;
 }
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<'moderation' | 'users' | 'settings' | 'ai'>('moderation');
+  const [activeTab, setActiveTab] = useState<'moderation' | 'users' | 'settings' | 'ai' | 'featured' | 'performance'>('moderation');
 
   const tabs = [
     { id: 'moderation', label: 'Moderation', icon: Shield },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'ai', label: 'AI Instructions', icon: Brain }
+    { id: 'ai', label: 'AI Instructions', icon: Brain },
+    { id: 'featured', label: 'Featured Content', icon: Sparkles },
+    { id: 'performance', label: 'AI Analytics', icon: BarChart2 }
   ];
 
   const renderContent = () => {
@@ -29,6 +33,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
         return <AdminSettings />;
       case 'ai':
         return <AIInstructionsManager />;
+      case 'featured':
+        return <FeaturedContentManager />;
+      case 'performance':
+        return <AIContentPerformance />;
       default:
         return null;
     }

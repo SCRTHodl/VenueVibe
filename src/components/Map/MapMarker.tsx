@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { Marker } from 'react-map-gl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Users, Clock } from 'lucide-react';
-import { Group, GroupActivity } from '../../types';
+import { MapPin, Users, Clock, MessageCircle } from 'lucide-react';
+import { Group } from '../../types';
+
+// Define a minimal GroupActivity interface locally to avoid import errors
+interface GroupActivity {
+  id: string;
+  level: number;
+  surgeCount: number;
+}
 
 interface MapMarkerProps {
   group: Group;
@@ -10,21 +17,24 @@ interface MapMarkerProps {
   isSelected: boolean;
   onSelect: (group: Group) => void;
   scale?: number;
+  onViewPosts?: (group: Group) => void; // Added prop for viewing posts & chat
 }
 
 export const MapMarker: React.FC<MapMarkerProps> = ({ 
   group, 
-  activity, 
+  // activity not used but included in props for type compatibility
   isSelected, 
   onSelect,
-  scale = 1
+  scale = 1,
+  onViewPosts
 }) => {
   const [showPreview, setShowPreview] = useState(false);
   
   // All group markers now use blue color
   const markerColor = '#3b82f6'; // blue-500
   
-  const size = Math.min(50, 30 + (Math.log(group.participants) * 5)) * scale;
+  // Calculate size based on participants and scale (used for marker dimensions)
+  const markerSize = Math.min(50, 30 + (Math.log(group.participants) * 5)) * scale;
   
   const handleMouseEnter = () => {
     // Only show preview on desktop
@@ -60,7 +70,11 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
         <div className="marker-container">
           <div 
             className={`marker-pin ${isSelected ? 'selected' : ''}`}
-            style={{ color: isSelected ? '#8b5cf6' : markerColor }}
+            style={{ 
+              color: isSelected ? '#8b5cf6' : markerColor,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`
+            }}
           >
             <MapPin size={32 * scale} className="drop-shadow-lg" />
             
@@ -86,8 +100,27 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
                     alt={group.name} 
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#121826]/80"></div>
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#121826]/80" data-component-name="MapMarker"></div>
                 </div>
+              )}
+              
+              {/* Quick Chat Access Button - Original size and position with improved functionality */}
+              {onViewPosts && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Chat button clicked for venue:', group.name);
+                    // Immediately close the popup and go to chat
+                    onViewPosts(group);
+                    // Prevent any other events from firing
+                    e.nativeEvent.stopImmediatePropagation();
+                    return false;
+                  }}
+                  className="absolute top-1 right-1 bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-full flex items-center justify-center shadow-lg z-30"
+                >
+                  <MessageCircle size={16} />
+                </button>
               )}
               
               <div className="p-2">

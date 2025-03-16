@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
 import { QrCode, CheckCircle, AlertCircle, KeyRound } from 'lucide-react';
 import { EVENT_THEMES } from '../../constants';
+import { supabase } from '../../lib/supabase';
 import type { EventTheme } from '../../types';
+
+// Define the InviteCode interface here to match the database structure
+interface InviteCode {
+  id: string;
+  code: string;
+  created_by: string;
+  created_at?: string;
+  expiry_date: string;
+  max_uses: number;
+  uses: number;
+  is_active: boolean;
+  themeId?: string; // Associated theme ID for this invite code
+}
 
 interface InviteCodeEntryProps {
   onSuccess: (inviteCode: string, theme?: EventTheme) => void;
@@ -22,15 +36,11 @@ export const InviteCodeEntry: React.FC<InviteCodeEntryProps> = ({ onSuccess, onC
     setStatus('loading');
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // For demo purposes, check if the code matches any in our constants
-      // In a real app, this would be a call to check the code in a database
+      // First check hardcoded demo codes for backwards compatibility
       let foundTheme: EventTheme | undefined;
       const upperCaseCode = inviteCode.toUpperCase();
       
-      // Check for special event codes
+      // Check for special event codes (demo hardcoded codes)
       if (upperCaseCode === 'SPRING2025') {
         foundTheme = EVENT_THEMES.find(theme => theme.id === 'spring-training');
       } else if (upperCaseCode === 'ART2025') {
@@ -39,22 +49,74 @@ export const InviteCodeEntry: React.FC<InviteCodeEntryProps> = ({ onSuccess, onC
         foundTheme = EVENT_THEMES.find(theme => theme.id === 'suns-playoff');
       }
       
-      if (foundTheme) {
-        setMatchedTheme(foundTheme);
+      // Check if this is a code from the database
+      if (!foundTheme) {
+        // Check the database for the invite code
+        // Use public schema for invite codes
+        const { data: inviteData, error } = await supabase
+          .from('invite_codes')
+          .select('*')
+          .eq('code', upperCaseCode)
+          .eq('is_active', true)
+          .single();
+          
+        if (error) {
+          console.error('Error checking invite code:', error);
+          // Continue with hardcoded checks - don't show error yet
+        } else if (inviteData) {
+          // Valid code from database
+          const dbCode = inviteData as InviteCode;
+          
+          // Check if code is expired
+          const expiryDate = new Date(dbCode.expiry_date);
+          if (expiryDate < new Date()) {
+            setStatus('error');
+            setErrorMessage('This invitation code has expired.');
+            return;
+          }
+          
+          // Check if code has reached max uses
+          if (dbCode.uses >= dbCode.max_uses) {
+            setStatus('error');
+            setErrorMessage('This invitation code has reached its maximum number of uses.');
+            return;
+          }
+          
+          // If the code has an associated theme, find it
+          if (dbCode.themeId) {
+            foundTheme = EVENT_THEMES.find(theme => theme.id === dbCode.themeId);
+          }
+          
+          // Update the uses count for this code
+          // Update the usage count in the public schema
+          await supabase
+            .from('invite_codes')
+            .update({ uses: dbCode.uses + 1 })
+            .eq('id', dbCode.id);
+            
+          // Set success state - will be handled below
+          setStatus('success');
+        }
+      }
+      
+      // Check for legacy venue-specific codes
+      const isLegacyVenueCode = [
+        'CIBO2025', 'CHURCHILL25', 'DROPOUT25', 'POSTINO25', 'MISSION25'
+      ].includes(upperCaseCode);
+      
+      if (foundTheme || status === 'success') {
+        // If we found a theme (either from hardcoded demos or from database)
+        if (foundTheme) {
+          setMatchedTheme(foundTheme);
+        }
         setStatus('success');
         
         // Small delay before returning success
         setTimeout(() => {
           onSuccess(inviteCode, foundTheme);
         }, 1000);
-      } else if (
-        upperCaseCode === 'CIBO2025' || 
-        upperCaseCode === 'CHURCHILL25' || 
-        upperCaseCode === 'DROPOUT25' || 
-        upperCaseCode === 'POSTINO25' ||
-        upperCaseCode === 'MISSION25'
-      ) {
-        // Valid venue-specific code
+      } else if (isLegacyVenueCode) {
+        // Valid venue-specific code (legacy)
         setStatus('success');
         
         // Small delay before returning success

@@ -1,0 +1,2294 @@
+import React, { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
+import { Map, ArrowLeft, Sparkles, QrCode, Palette, Settings, Coins, MapPin, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { supabase } from './lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { Feed } from './components/Feed/Feed';
+import { TEST_GROUPS, MOCK_POSTS, EVENT_THEMES } from './constants';
+
+// App statistics helper function
+async function getAppStats() {
+  try {
+    // Use mock data for demo instead of real tables
+    // This prevents 404 errors when tables don't exist yet
+    console.log('Fetching app stats with mock data for development');
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Create mock stats for demo purposes
+    return {
+      userCount: 342,
+      storyCount: 1289,
+      topBalances: [
+        { user_id: 'user1', balance: 2500 },
+        { user_id: 'user2', balance: 1800 },
+        { user_id: 'user3', balance: 1250 },
+        { user_id: 'user4', balance: 950 },
+        { user_id: 'user5', balance: 780 }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error fetching app stats:', error);
+    return {
+      userCount: 0,
+      storyCount: 0,
+      topBalances: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+}
+import { Stories } from './components/Stories/Stories';
+import { Profile } from './components/Profile/Profile';
+import { Notifications } from './components/Notifications/Notifications';
+import { SearchView } from './components/Search/SearchView';
+import { GroupDetail } from './components/Group/GroupDetail';
+import { EventBanner } from './components/EventTheme/EventBanner';
+import { LocalContentFeed } from './components/Trending/LocalContentFeed';
+import { TokenStore } from './components/TokenStore/TokenStore';
+import { RatingsView } from './components/Ratings/RatingsView';
+import { Leaderboard } from './components/Leaderboard/Leaderboard';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTokenStore } from './lib/tokenStore';
+import { UserSettings } from './components/UserSettings/UserSettings';
+
+// Lazy load the map component to improve initial load time
+const MapView = lazy(() => import('./components/Map'));
+
+// Import type definitions from types.ts - not from types/index.ts to avoid interface conflicts
+import type { 
+  User,
+  Group, 
+  Post,
+  Comment,
+  ActivityEvent, 
+  GroupActivity, 
+  UserLocation, 
+  ViewState,
+  AppStatsType,
+  EventTheme,
+  AppTheme,
+  UserStory,
+  UserSettings as UserSettingsType,
+  PromotionSettings,
+  InviteCode
+} from './types';
+
+function App() {
+  // State
+  const [viewState, setViewState] = useState<ViewState>({
+    latitude: 33.4942,
+    longitude: -111.9261,
+    zoom: 11
+  });
+  const [groups, setGroups] = useState<Group[]>(TEST_GROUPS);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard' | 'search'>('home');
+  const [groupActivities, setGroupActivities] = useState<GroupActivity[]>([]);
+  const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [appStats, setAppStats] = useState<AppStatsType>({ subscriberCount: 0, version: '1.0.0' });
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  // Only load the map when it's actually needed
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS as unknown as Post[]);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [showGroupDetail, setShowGroupDetail] = useState(false);
+  const [showTokenStore, setShowTokenStore] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showContentTypeModal, setShowContentTypeModal] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<{id: string, name: string} | null>(null);
+  const [autoChatOpen, setAutoChatOpen] = useState(false);
+  const [venuePosts, setVenuePosts] = useState<Post[]>([]);
+  
+  // New state for theme customizer, invite code and events
+  const [activeEventTheme, setActiveEventTheme] = useState<EventTheme | null>(EVENT_THEMES[0]);
+  const [showInviteCodeEntry, setShowInviteCodeEntry] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+  
+  // State for filtered content
+  const [filteredByInviteCode, setFilteredByInviteCode] = useState(false);
+  const [showThemeCustomizer, setShowThemeCustomizer] = useState(false);
+  const [userStories, setUserStories] = useState<UserStory[]>([]);
+  // User settings modal state
+  const [showUserSettings, setShowUserSettings] = useState(false);
+  
+  // Admin panel states - includes invite codes and promotion settings
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
+  const [promotionSettings, setPromotionSettings] = useState<PromotionSettings>({
+    isEnabled: true,
+    tokenReward: 10,
+    promotionTheme: EVENT_THEMES[0],
+    moderationKeywords: ['community', 'engagement', 'positive'],
+    contentFocus: 'Encourage users to share local insights and community-building posts',
+    specialOffer: 'SPECIAL DEAL TODAY',
+    customBannerUrl: '',
+    promotionalBoxes: [
+      {
+        title: 'Happy Hour',
+        description: 'Daily from 4-7pm',
+        discountText: '25% OFF DRINKS & APPETIZERS',
+        isEnabled: true,
+        displayOrder: 1
+      },
+      {
+        title: 'Weekend Special',
+        description: 'Saturday & Sunday',
+        discountText: 'BUY ONE GET ONE FREE',
+        isEnabled: true,
+        displayOrder: 2
+      },
+      {
+        title: 'Loyalty Rewards',
+        description: 'For members only',
+        discountText: 'EARN 2X TOKENS TODAY',
+        isEnabled: true,
+        displayOrder: 3
+      },
+      {
+        title: 'New Arrivals',
+        description: 'Limited time offer',
+        discountText: '15% OFF NEW MENU ITEMS',
+        isEnabled: true,
+        displayOrder: 4
+      }
+    ]
+  });
+  // Define current user with admin privileges
+  const [currentUser, setCurrentUser] = useState<User>({
+    id: 'user-1',
+    name: 'Current User',
+    avatar: '/assets/avatars/avatar-1.jpg',
+    tokens: 100,
+    isAdmin: true, // Set to true for testing admin features
+    settings: {
+      locationRadius: 60,
+      autoRefresh: true,
+      maxResults: 50,
+      darkMode: true,
+      notifications: true,
+      tokenRefreshEnabled: true,
+      tokenRefreshInterval: 60 // default to 60 minutes
+    }
+  });
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>({
+    primary: '#8b5cf6',
+    secondary: '#3b82f6',
+    accent: '#10b981',
+    background: '#000000',
+    cardBackground: '#0a0a0a',
+    textPrimary: '#ffffff',
+    textSecondary: '#a1a1aa'
+  });
+
+  const feedRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+  
+  // Initialize token store
+  const { initializeWallet } = useTokenStore();
+  
+  useEffect(() => {
+    initializeWallet();
+  }, [initializeWallet]);
+  
+  // Check if Mapbox token is configured
+  useEffect(() => {
+    if (!mapboxToken) {
+      setMapError('Please configure your Mapbox token in the environment variables.');
+    } else {
+      setMapError(null);
+    }
+  }, [mapboxToken]);
+
+  // Load app stats
+  useEffect(() => {
+    const loadAppStats = async () => {
+      const stats = await getAppStats();
+      setAppStats(stats);
+      
+      // Set default active event theme (Spring Training) for demo
+      const springTheme = EVENT_THEMES.find(theme => theme.id === 'spring-training');
+      if (springTheme) {
+        setActiveEventTheme(springTheme);
+      }
+      
+      // Apply CSS variable updates based on current theme
+      document.documentElement.style.setProperty('--color-accent-primary', currentTheme.primary);
+      document.documentElement.style.setProperty('--color-accent-secondary', currentTheme.secondary);
+      document.documentElement.style.setProperty('--color-bg-primary', currentTheme.background);
+      document.documentElement.style.setProperty('--color-bg-secondary', currentTheme.cardBackground);
+      document.documentElement.style.setProperty('--color-text-primary', currentTheme.textPrimary);
+      document.documentElement.style.setProperty('--color-text-secondary', currentTheme.textSecondary);
+    };
+    
+    loadAppStats();
+  }, [currentTheme]);
+
+  // Generate activity events for real-time map feed
+  useEffect(() => {
+    const EVENT_TYPES = ['join', 'badge', 'gift', 'like'];
+    const USER_NAMES = ['Alex', 'Jordan', 'Taylor', 'Casey', 'Morgan', 'Riley', 'Skyler', 'Jamie'];
+    const BADGE_NAMES = ['Explorer Pro', 'Local Guide', 'Night Owl', 'Event Master', 'Social Butterfly'];
+    const GROUP_NAMES = groups.map(g => g.name);
+    const GIFT_TYPES = ['🍹 Drink', '🎁 Welcome Gift', '🏆 VIP Pass', '🎫 Event Ticket', '⭐ Premium Access'];
+    
+    // Create some initial events
+    const initialEvents: ActivityEvent[] = [];
+    for (let i = 0; i < 3; i++) {
+      const type = EVENT_TYPES[Math.floor(Math.random() * EVENT_TYPES.length)] as 'join' | 'badge' | 'gift' | 'like';
+      const newEvent: ActivityEvent = {
+        id: `event-${Date.now()}-${i}`,
+        type,
+        userName: USER_NAMES[Math.floor(Math.random() * USER_NAMES.length)],
+        createdAt: new Date().toISOString()
+      };
+      
+      if (type === 'join') {
+        newEvent.groupName = GROUP_NAMES[Math.floor(Math.random() * GROUP_NAMES.length)];
+      } else if (type === 'badge') {
+        newEvent.badgeName = BADGE_NAMES[Math.floor(Math.random() * BADGE_NAMES.length)];
+      } else if (type === 'gift') {
+        newEvent.giftType = GIFT_TYPES[Math.floor(Math.random() * GIFT_TYPES.length)];
+        newEvent.targetName = USER_NAMES[Math.floor(Math.random() * USER_NAMES.length)];
+      } else if (type === 'like') {
+        newEvent.targetName = 'Your post';
+      }
+      
+      initialEvents.push(newEvent);
+    }
+    
+    setActivityEvents(initialEvents);
+    
+    // Periodically add new events
+    const interval = setInterval(() => {
+      if (isMapVisible) {
+        const type = EVENT_TYPES[Math.floor(Math.random() * EVENT_TYPES.length)] as 'join' | 'badge' | 'gift' | 'like';
+        const newEvent: ActivityEvent = {
+          id: `event-${Date.now()}`,
+          type,
+          userName: USER_NAMES[Math.floor(Math.random() * USER_NAMES.length)],
+          createdAt: new Date().toISOString()
+        };
+        
+        if (type === 'join') {
+          newEvent.groupName = GROUP_NAMES[Math.floor(Math.random() * GROUP_NAMES.length)];
+        } else if (type === 'badge') {
+          newEvent.badgeName = BADGE_NAMES[Math.floor(Math.random() * BADGE_NAMES.length)];
+        } else if (type === 'gift') {
+          newEvent.giftType = GIFT_TYPES[Math.floor(Math.random() * GIFT_TYPES.length)];
+          newEvent.targetName = USER_NAMES[Math.floor(Math.random() * USER_NAMES.length)];
+        } else if (type === 'like') {
+          newEvent.targetName = 'Your post';
+        }
+        
+        setActivityEvents(prev => [...prev, newEvent]);
+        
+        // After 5 seconds, mark the event to fade out
+        setTimeout(() => {
+          setActivityEvents(prev => 
+            prev.map(event => 
+              event.id === newEvent.id ? { ...event, fadeOut: true } : event
+            )
+          );
+          
+          // After the fade out animation, remove the event
+          setTimeout(() => {
+            setActivityEvents(prev => prev.filter(event => event.id !== newEvent.id));
+          }, 1000);
+        }, 5000);
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [isMapVisible, groups]);
+
+  // Generate user locations
+  useEffect(() => {
+    const generateUserLocations = () => {
+      const locations: UserLocation[] = [];
+      groups.forEach(group => {
+        const userCount = 3 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < userCount; i++) {
+          const latOffset = (Math.random() - 0.5) * 0.01;
+          const lngOffset = (Math.random() - 0.5) * 0.01;
+          locations.push({
+            id: `user-${group.id}-${i}`,
+            latitude: group.latitude + latOffset,
+            longitude: group.longitude + lngOffset,
+            lastActive: Date.now() - Math.random() * 3600000
+          });
+        }
+      });
+      setUserLocations(locations);
+    };
+
+    generateUserLocations();
+    
+    // Update user locations less frequently
+    const interval = setInterval(() => {
+      if (isMapVisible) {
+        setUserLocations(prev => prev.map(loc => ({
+          ...loc,
+          latitude: loc.latitude + (Math.random() - 0.5) * 0.001,
+          longitude: loc.longitude + (Math.random() - 0.5) * 0.001,
+          lastActive: Math.random() > 0.7 ? Date.now() : loc.lastActive
+        })));
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [groups, isMapVisible]);
+
+  // Update group activities
+  useEffect(() => {
+    setGroupActivities(groups.map(group => ({
+      id: group.id,
+      level: Math.floor(Math.random() * 10) + 1,
+      surgeCount: 0
+    })));
+
+    const interval = setInterval(() => {
+      if (isMapVisible) {
+        setGroupActivities(prev => prev.map(activity => ({
+          ...activity,
+          level: Math.min(10, Math.max(1, activity.level + (Math.random() > 0.5 ? 1 : -1))),
+          surgeCount: Math.random() > 0.8 ? activity.surgeCount + 1 : activity.surgeCount
+        })));
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [groups, isMapVisible]);
+
+  // Memoize the user heatmap data
+  const userHeatmapData = React.useMemo(() => ({
+    type: 'FeatureCollection',
+    features: userLocations.map(user => ({
+      type: 'Feature',
+      properties: {
+        weight: Math.max(0.2, 1 - (Date.now() - user.lastActive) / 3600000)
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [user.longitude, user.latitude]
+      }
+    }))
+  }), [userLocations]);
+
+  const userHeatmapLayer = {
+    id: 'user-heat',
+    type: 'heatmap',
+    paint: {
+      'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+      'heatmap-color': [
+        'interpolate',
+        ['linear'],
+        ['heatmap-density'],
+        0, 'rgba(139,92,246,0)',
+        0.2, 'rgba(139,92,246,0.3)',
+        0.4, 'rgba(139,92,246,0.5)',
+        0.6, 'rgba(139,92,246,0.7)',
+        0.8, 'rgba(139,92,246,0.8)',
+        1, 'rgba(139,92,246,1)'
+      ],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 9, 15],
+      'heatmap-opacity': 0.6
+    }
+  };
+
+  const handleGroupSelect = (group: Group) => {
+    setSelectedGroup(group);
+    setShowGroupDetail(true);
+    setIsMapVisible(false);
+  };
+  
+  // Handle creating a new venue post
+  const handleCreatePost = async (content: string, venueId: string) => {
+    console.log('Creating new post for venue:', venueId, content);
+    
+    try {
+      // Get the venue (group) information
+      const venue = groups.find(group => group.id === venueId);
+      
+      if (!venue) {
+        toast.error('Venue not found');
+        return;
+      }
+      
+      // Create a new post object with properly initialized comments array
+      const newPost: Post = {
+        id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar,
+        content: content,
+        createdAt: new Date().toISOString(),
+        venue: venue,
+        venueId: venue.id,
+        comments: [], // Initialize as empty array
+        likes: 0,
+        isLiked: false,
+        tags: [venue.id, venue.category],
+        photos: []
+      };
+      
+      // Add to all posts
+      setPosts((prevPosts: Post[]) => [newPost, ...prevPosts]);
+      
+      // If this venue is currently selected, add to venue posts too
+      if (selectedVenue && selectedVenue.id === venueId) {
+        setVenuePosts((prevVenuePosts: Post[]) => [newPost, ...prevVenuePosts]);
+      }
+      
+      toast.success('Post created successfully');
+      return newPost;
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast.error('Failed to create post');
+      throw error;
+    }
+  };
+  
+  // Handle commenting on venue posts
+  const handlePostComment = async (postId: string, comment: string) => {
+    console.log('Adding comment to post:', postId, comment);
+    
+    try {
+      // Find the post to comment on
+      const targetPost = posts.find(post => post.id === postId);
+      
+      if (!targetPost) {
+        toast.error('Post not found');
+        return;
+      }
+      
+      // Create a new comment object
+      const newComment: Comment = {
+        id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        text: comment,
+        user: currentUser ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.avatar
+        } : undefined,
+        createdAt: new Date().toISOString(),
+        postId: postId
+      };
+      
+      // Add to the post's comments array
+      const updatedPost = {
+        ...targetPost,
+        comments: [...targetPost.comments, newComment]
+      }; // Type is already Post
+      
+      // Update the posts array with type assertion
+      const updatedPosts = posts.map(post => 
+        post.id === postId ? updatedPost : post
+      ) as Post[];
+      
+      // Update state
+      setPosts(updatedPosts);
+      
+      // If this is a venue post, also update venue posts
+      if (selectedVenue && venuePosts.some(post => post.id === postId)) {
+        const updatedVenuePosts = venuePosts.map(post => 
+          post.id === postId ? updatedPost : post
+        );
+        setVenuePosts(updatedVenuePosts);
+      }
+      
+      toast.success('Comment added');
+      return updatedPost;
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+      throw error;
+    }
+  };
+  
+  // Helper function to calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    // Convert latitude and longitude from degrees to radians
+    const toRadians = (degrees: number) => degrees * Math.PI / 180;
+    const radLat1 = toRadians(lat1);
+    const radLon1 = toRadians(lon1);
+    const radLat2 = toRadians(lat2);
+    const radLon2 = toRadians(lon2);
+    
+    // Earth radius in miles
+    const earthRadius = 3958.8; // miles (6371 km)
+    
+    // Haversine formula
+    const dLat = radLat2 - radLat1;
+    const dLon = radLon2 - radLon1;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(radLat1) * Math.cos(radLat2) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = earthRadius * c;
+    
+    return distance; // Returns distance in miles
+  };
+  
+  // Function to find the nearest venue within a specific radius
+  const findNearestVenue = (
+    latitude: number, 
+    longitude: number, 
+    availableGroups: Group[], 
+    radiusInMiles: number
+  ): Group | null => {
+    let nearestVenue: Group | null = null;
+    let shortestDistance = Infinity;
+    
+    availableGroups.forEach(venue => {
+      if (venue.latitude && venue.longitude) {
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          venue.latitude,
+          venue.longitude
+        );
+        
+        // Check if venue is within specified radius and closer than current nearest
+        if (distance <= radiusInMiles && distance < shortestDistance) {
+          shortestDistance = distance;
+          nearestVenue = venue;
+        }
+      }
+    });
+    
+    return nearestVenue;
+  };
+  
+  // Function to generate simulated location posts
+  const generateLocationPosts = (venueId: string, count: number) => {
+    const venueGroup = groups.find(g => g.id === venueId);
+    if (!venueGroup) return [];
+    
+    const postTemplates = [
+      `Just arrived at ${venueGroup.name}! The atmosphere is amazing.`,
+      `Checking out ${venueGroup.name} today. Anyone else here?`,
+      `Loving the vibe at ${venueGroup.name}. Definitely recommend!`,
+      `My first time at ${venueGroup.name} and I'm impressed.`,
+      `${venueGroup.name} is packed today! Great energy.`,
+      `Found a hidden gem: ${venueGroup.name}. The ${venueGroup.category} scene is vibrant.`,
+      `Pro tip: visit ${venueGroup.name} during weekdays to avoid crowds.`,
+      `The staff at ${venueGroup.name} are super friendly!`,
+      `Taking a break at ${venueGroup.name}. Perfect spot to unwind.`,
+      `${venueGroup.name} just updated their offerings. Worth checking out!`
+    ];
+    
+    // Sample image URLs for posts
+    const sampleImages = [
+      'https://source.unsplash.com/random/800x600/?restaurant',
+      'https://source.unsplash.com/random/800x600/?cafe',
+      'https://source.unsplash.com/random/800x600/?bar',
+      'https://source.unsplash.com/random/800x600/?club',
+      'https://source.unsplash.com/random/800x600/?view',
+      'https://source.unsplash.com/random/800x600/?food'
+    ];
+    
+    return Array.from({ length: count }, (_, i) => {
+      // Get a random post template and image
+      const randomContent = postTemplates[Math.floor(Math.random() * postTemplates.length)];
+      const randomImage = Math.random() > 0.3 ? sampleImages[Math.floor(Math.random() * sampleImages.length)] : '';
+      
+      // Generate random likes
+      const likes = Math.floor(Math.random() * 50);
+      
+      // Create a unique post ID
+      const postId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${i}`;
+      
+      // Generate an empty comments array that matches the Post type
+      const emptyComments: Comment[] = [];
+      
+      // Return the generated post
+      return {
+        id: postId,
+        content: randomContent,
+        userId: `user-${Math.floor(Math.random() * 1000)}`,
+        userName: ['Alex', 'Jordan', 'Jamie', 'Riley', 'Taylor', 'Morgan', 'Casey'][Math.floor(Math.random() * 7)],
+        userAvatar: `https://i.pravatar.cc/150?u=${Math.random()}`,
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 3600000)).toISOString(), // Random time in the last hour
+        venue: venueGroup,
+        venueId,
+        comments: emptyComments,
+        likes,
+        isLiked: Math.random() > 0.7,
+        tags: [venueGroup.category, 'trending', venueGroup.name.toLowerCase()],
+        image: randomImage,
+        photos: randomImage ? [randomImage] : []
+      };
+    });
+  };
+  };
+  
+  // Function to rotate location-based posts (simulating new content being loaded)
+  const rotateLocationPosts = async (venueId: string) => {
+    // Get the current user properly typed
+    const user = currentUser as User | null;
+    const userTokens = user?.tokens || 0;
+    
+    // Explicitly capture state setters to avoid TypeScript scope issues
+    const updatePosts = setPosts;
+    const updateVenuePosts = setVenuePosts;
+    const updateCurrentUser = setCurrentUser;
+    
+    // Verify user has enough tokens (1 token required)
+    if (userTokens < 1) {
+      toast.error('You need 1 token to refresh location posts');
+      return;
+    }
+    
+    // Show loading toast
+    toast.loading('Refreshing location posts...', { id: 'refresh-posts' });
+    
+    // Simulate API call delay
+    setTimeout(async () => {
+      try {
+        // Generate new simulated posts for this venue
+        const newPosts = generateLocationPosts(venueId, 3) as Post[]; // Generate 3 new posts
+        
+        // Ensure the new posts have proper comment arrays to prevent type errors
+        const postsWithComments = newPosts.map(post => ({
+          ...post,
+          comments: post.comments || []
+        }));
+        
+        // Add these to the beginning of venue posts and all posts
+        updatePosts((prevPosts: Post[]) => [...postsWithComments, ...prevPosts]);
+        // Add type annotation to fix the 'Cannot find name setVenuePosts' error
+        if (updateVenuePosts) {
+          updateVenuePosts((prevVenuePosts: Post[]) => [...postsWithComments, ...prevVenuePosts]);
+        }
+        
+        // Deduct token from user and update state
+        if (user) {
+          // Update user's tokens using the functional form of setState for consistency
+          updateCurrentUser((prev: User) => ({
+            ...prev,
+            tokens: userTokens - 1
+          }));
+          
+          // Record the transaction using the token_economy schema
+          // Using the dedicated schema as indicated in the memories
+          try {
+            // Record the token transaction through supabase RPC call
+            const { error: txError } = await supabase.rpc('token_economy.record_transaction', {
+              user_id: user.id,
+              amount: -1,
+              transaction_type: 'location_refresh',
+              reference_id: venueId,
+              description: 'Refreshed location posts'
+            });
+            
+            if (txError) {
+              console.error('Failed to record token transaction:', txError);
+            }
+          } catch (error) {
+            console.error('Failed to record token transaction:', error);
+          }
+        }
+        
+        // Complete the toast
+        toast.success('New location posts available!', { id: 'refresh-posts' });
+      } catch (error) {
+        console.error('Error refreshing posts:', error);
+        toast.error('Failed to refresh posts', { id: 'refresh-posts' });
+      }
+    }, 1500);
+  };
+  
+  // Handle viewing venue posts and comments
+  const handleViewVenuePosts = (venueId: string, venueName: string) => {
+    console.log('handleViewVenuePosts called with:', venueId, venueName);
+    
+    // Find the group object that matches this venue ID
+    const venueGroup = groups.find(group => group.id === venueId);
+    console.log('Found venue group:', venueGroup ? venueGroup.name : 'Not found');
+    
+    if (venueGroup) {
+      // Filter all posts that are tagged with this venue
+      const venueTags = [venueId, venueGroup.name.toLowerCase(), venueGroup.category.toLowerCase()];
+      
+      const relevantPosts = posts.filter(post => {
+        // First check if post is directly associated with this venue
+        if (post.venue?.id === venueId) return true;
+        if (post.venueId === venueId) return true;
+        
+        // Then check if post has any matching tags
+        if (post.tags && post.tags.some(tag => 
+          venueTags.includes(tag.toLowerCase())
+        )) return true;
+        
+        return false;
+      }).sort((a, b) => {
+        // Sort by newest posts first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      // Log the found posts for debugging
+      console.log(`Found ${relevantPosts.length} posts tagged with venue:`, venueId);
+      
+      // If no posts found, generate some initial location posts
+      let postsToShow = relevantPosts;
+      if (relevantPosts.length === 0) {
+        const initialPosts = generateLocationPosts(venueId, 5);
+        setPosts((prevPosts: Post[]) => [...initialPosts, ...prevPosts]);
+        postsToShow = initialPosts;
+      }
+      
+      // Store these posts to be displayed in the venue posts panel
+      setVenuePosts((prevVenuePosts: Post[]) => [...postsToShow, ...prevVenuePosts]);
+      
+      // Set selected venue info
+      setSelectedGroup(venueGroup);
+      setSelectedVenue({ id: venueId, name: venueName });
+      
+      // Auto-open the post view when clicking a venue
+      setAutoChatOpen(true);
+      
+      // Hide map and show group detail last
+      setIsMapVisible(false);
+      setShowGroupDetail(true);
+    } else {
+      // Fallback to just showing posts if group not found
+      setSelectedVenue({ id: venueId, name: venueName });
+      setIsMapVisible(false);
+      setActiveTab('home');
+      
+      // Scroll to venue-specific posts in the feed
+      setTimeout(() => {
+        if (feedRef.current) {
+          // Scroll to any venue-specific content
+          feedRef.current.scrollTop = 0;
+          
+          toast.success(`Viewing posts for ${venueName}`);
+        }
+      }, 300);
+    }
+  };
+  
+  // Setup event listeners for venue change and refresh from ChatPanel
+  useEffect(() => {
+    const handleVenueChange = (event: CustomEvent) => {
+      const { venueId, venueName } = event.detail;
+      if (venueId && venueName) {
+        // Call the same function used when selecting venues from the map
+        handleViewVenuePosts(venueId, venueName);
+      }
+    };
+    
+    // Handle refresh venue posts request
+    const handleRefreshVenuePosts = (event: CustomEvent) => {
+      const { venueId } = event.detail;
+      if (venueId && selectedVenue && selectedVenue.id === venueId) {
+        // Refresh posts for the currently selected venue
+        rotateLocationPosts(venueId);
+      }
+    };
+    
+    // Handle location change to auto-refresh content
+    const handleLocationChange = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      
+      // Get current user from state
+      const user = currentUser;
+      
+      // Update user's location in state
+      if (user) {
+        setCurrentUser((prev) => {
+          return {
+            ...prev,
+            location: {
+              latitude,
+              longitude,
+              lastUpdated: new Date().toISOString()
+            }
+          };
+        });
+        
+        // Check if auto-refresh is enabled in user settings
+        const shouldAutoRefresh = user.settings?.autoRefresh;
+        const currentSelectedVenue = selectedVenue as { id: string, name: string } | null;
+        
+        // If in a new area (beyond current radius), auto-refresh if setting enabled
+        if (shouldAutoRefresh && currentSelectedVenue) {
+          // Get user's radius setting or use default (60 miles)
+          const radiusInMiles = user.settings?.locationRadius || 60;
+          
+          // Check if current venue is outside of user's radius setting
+          const venueGroup = groups.find((g: Group) => g.id === currentSelectedVenue.id);
+          if (venueGroup) {
+            const distance = calculateDistance(
+              latitude, 
+              longitude, 
+              venueGroup.latitude, 
+              venueGroup.longitude
+            );
+            
+            // If outside radius, find nearest venue and rotate posts
+            if (distance > radiusInMiles) {
+              // Find nearest venue within the updated radius
+              const nearestVenue = findNearestVenue(latitude, longitude, groups, radiusInMiles);
+              if (nearestVenue) {
+                // Switch to the nearest venue
+                handleViewVenuePosts(nearestVenue.id, nearestVenue.name);
+                
+                // Show notification about location change
+                toast.success(`Moved to ${nearestVenue.name}, it's within your ${radiusInMiles} mile radius`);
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    // Watch user's location if browser supports geolocation
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        handleLocationChange,
+        (error) => console.error('Geolocation error:', error),
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 27000 }
+      );
+      
+      return () => {
+        // Clean up geolocation watcher
+        navigator.geolocation.clearWatch(watchId);
+        // Also clean up event listeners
+        window.removeEventListener('venueChange', handleVenueChange as EventListener);
+        window.removeEventListener('refreshVenuePosts', handleRefreshVenuePosts as EventListener);
+      };
+    }
+    
+    // Add event listeners for custom events
+    window.addEventListener('venueChange', handleVenueChange as EventListener);
+    window.addEventListener('refreshVenuePosts', handleRefreshVenuePosts as EventListener);
+    
+    return () => {
+      // Clean up event listeners on component unmount
+      window.removeEventListener('venueChange', handleVenueChange as EventListener);
+      window.removeEventListener('refreshVenuePosts', handleRefreshVenuePosts as EventListener);
+    };
+  }, [posts, groups, selectedVenue]); // Dependencies needed to ensure we have the latest data
+
+  const toggleMapView = () => {
+    if (!mapLoaded && !isMapVisible) {
+      // Start loading the map
+      setMapLoading(true);
+      setMapLoaded(true);
+    }
+    setIsMapVisible(!isMapVisible);
+  };
+  
+  // Handle map loading and initialization
+  useEffect(() => {
+    if (mapLoading) {
+      // Here we could add any data fetching required for the map
+      // such as venues, markers, etc.
+      
+      // This setTimeout simulates actual data loading, but prevents the spinner flash
+      const timer = setTimeout(() => {
+        setMapLoading(false);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [mapLoading]);
+  
+  const handleInviteCodeSuccess = useCallback((inviteCode: string, theme?: EventTheme) => {
+    // Close modal
+    setShowInviteCodeEntry(false);
+    
+    // Display success message
+    toast.success(`Invite code ${inviteCode} accepted!`);
+    
+    // Set active theme if provided
+    if (theme) {
+      // Update the active event theme
+      setActiveEventTheme(theme);
+      
+      // Show the promotional banner with the new theme
+      setShowBanner(true);
+      
+      // Also update the promotion settings to use this theme
+      setPromotionSettings((prev: PromotionSettings) => ({
+        ...prev,
+        promotionTheme: theme,
+        isEnabled: true // Enable promotions when using a themed invite code
+      }));
+      
+      // Display a themed welcome message
+      toast.success(`Welcome to ${theme.name} experience!`, {
+        icon: '✨',
+        duration: 5000
+      });
+    }
+    
+    // Filter groups by invite code
+    const filteredGroups = TEST_GROUPS.filter(group => 
+      group.inviteCode === inviteCode || 
+      (theme && group.eventTheme?.id === theme.id)
+    );
+    
+    if (filteredGroups.length > 0) {
+      // Store reference to state setters to avoid TypeScript scope issues
+      const updateGroups = setGroups;
+      const updateFilteredByInviteCode = setFilteredByInviteCode;
+      const updatePosts = setPosts;
+      
+      // Update state with proper type annotations
+      if (updateGroups) {
+        updateGroups(filteredGroups);
+      }
+      if (updateFilteredByInviteCode) {
+        updateFilteredByInviteCode(true);
+      }
+      
+      // Filter posts to match the filtered groups
+      const groupIds = filteredGroups.map(g => g.id);
+      // Ensure proper typing with comments as an array
+      const filteredPosts = MOCK_POSTS.filter(post => 
+        post.venue && groupIds.includes(post.venue.id)
+      ).map(post => ({
+        ...post,
+        comments: Array.isArray(post.comments) ? post.comments : []
+      })) as unknown as Post[];
+      
+      setPosts(filteredPosts);
+    }
+  }, []);
+  
+  // Reset all filters to show initial data set
+  const resetFilters = useCallback(() => {
+    // Reset posts to initial mock data with proper type casting
+    // Ensure the comments field is properly structured as an array to avoid type errors
+    const typeSafePosts = (MOCK_POSTS as any[]).map(post => ({
+      ...post,
+      comments: Array.isArray(post.comments) ? post.comments : []
+    })) as Post[];
+    
+    // Update posts with the type-safe mock data
+    setPosts(typeSafePosts);
+    setFilteredByInviteCode(false);
+  }, [setPosts, setFilteredByInviteCode]);
+  
+  const handleThemeChange = useCallback((newTheme: EventTheme) => {
+    // Set the active theme with type safety
+    if (newTheme) {
+      setActiveEventTheme(newTheme);
+    }
+  }, []);
+
+  // Handle content type selection
+  const handleContentTypeSelect = useCallback((type: 'story' | 'post') => {
+    setShowContentTypeModal(false);
+    if (type === 'story') {
+      setShowStoryModal(true);
+    } else {
+      setShowCreatePost(true);
+    }
+  }, []);
+
+  // Handle tab change
+  const handleTabChange = useCallback((tab: 'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard' | 'search') => {
+    if (tab === 'create') {
+      setShowContentTypeModal(true);
+    } else {
+      setActiveTab(tab);
+    }
+  }, []);
+  
+  // Update user settings including token refresh settings
+  const handleUpdateUserSettings = async (settings: UserSettingsType) => {
+    try {
+      // Update local state
+      setCurrentUser(prev => ({
+        ...prev,
+        settings
+      }));
+
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Update general user settings
+      const { error: settingsError } = await supabase
+        .from('users')
+        .update({ settings })
+        .eq('id', session.user.id);
+        
+      if (settingsError) {
+        console.error('Error updating user settings:', settingsError);
+        toast.error('Failed to update settings');
+        return;
+      }
+
+      // Update token refresh settings in token_economy schema if needed
+      if (settings.tokenRefreshEnabled !== undefined || settings.tokenRefreshInterval !== undefined) {
+        const { error: tokenError } = await supabase.rpc('token_economy.update_user_refresh_settings', {
+          user_id: session.user.id,
+          refresh_enabled: settings.tokenRefreshEnabled,
+          refresh_interval: settings.tokenRefreshInterval
+        });
+
+        if (tokenError) {
+          console.error('Error updating token refresh settings:', tokenError);
+          toast.error('Failed to update token settings');
+          return;
+        }
+      }
+      
+      // Close settings modal
+      setShowUserSettings(false);
+      toast.success('Settings updated successfully');
+    } catch (error) {
+      console.error('Error in handleUpdateUserSettings:', error);
+      toast.error('Failed to update settings');
+    }
+  };
+
+  // Check if user has admin access
+  const checkAdminAccess = async (userId: string): Promise<boolean> => {
+    try {
+      // Using service role key for admin operations as required by security model
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (error || !data) {
+        console.error('Error checking admin access:', error);
+        return false;
+      }
+      
+      // Verify the user has is_admin=true in users table as per security requirements
+      return data.role === 'admin';
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      return false;
+    }
+  };
+  
+  // Admin Panel Functions for location, promotion settings, and invite codes
+  // Update promotion settings in database (admin-only operation)
+  const handleUpdatePromotionSettings = async (newSettings: PromotionSettings) => {
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Verify admin access using service role key
+      const isAdmin = await checkAdminAccess(session.user.id);
+      if (!isAdmin) {
+        toast.error('Admin privileges required');
+        return;
+      }
+      
+      // Update local state immediately for responsive UI
+      setPromotionSettings(newSettings);
+      
+      // Update promotion settings in database using token_economy schema
+      // Use service role key for admin operations as required by the app's security model
+      const { error } = await supabase
+        .from('token_economy.system_settings')
+        .upsert({
+          key: 'promotion_settings',
+          value: newSettings
+        });
+        
+      if (error) {
+        console.error('Error updating promotion settings:', error);
+        toast.error('Failed to update promotion settings');
+        return;
+      }
+      
+      toast.success('Promotion settings updated successfully');
+    } catch (error) {
+      console.error('Error updating promotion settings:', error);
+      toast.error('Failed to update promotion settings');
+    }
+  };
+  
+  // Load all invite codes from the database
+  const loadInviteCodes = async () => {
+    try {
+      // Check if user has admin privileges first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Verify admin access - following the memory requirement (is_admin=true in users table)
+      const isAdmin = await checkAdminAccess(session.user.id);
+      if (!isAdmin) {
+        toast.error('Admin privileges required');
+        return;
+      }
+      
+      // Use service role key for admin operations - following the memory requirement
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      
+      // Access token_economy schema as specified in memory
+      const { data, error } = await supabaseAdmin
+        .from('token_economy.invite_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error loading invite codes:', error);
+        toast.error('Failed to load invite codes');
+        return;
+      }
+      
+      // Update local state with type safety
+      if (data) {
+        // Map database fields from token_economy schema to our InviteCode model
+        const codes = data.map((code) => ({
+          id: code.id,
+          code: code.code,
+          created_by: code.created_by || session.user.id,
+          created_at: code.created_at,
+          expiry_date: code.expires_at,
+          max_uses: code.max_uses,
+          uses: code.uses,
+          is_active: code.is_active,
+          themeId: code.theme_id
+        }));
+        
+        setInviteCodes(codes);
+      }
+    } catch (error) {
+      console.error('Error loading invite codes:', error);
+      toast.error('Failed to load invite codes');
+    }
+  };
+  
+
+
+  const handleCreateInviteCode = async (expiryDays: number = 7, maxUses: number = 1, themeId?: string) => {
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Check if user has admin privileges
+      const isAdmin = await checkAdminAccess(session.user.id);
+      if (!isAdmin) {
+        toast.error('Admin privileges required');
+        return;
+      }
+      
+      // Generate a random 8-character code
+      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + expiryDays);
+      
+      // Insert new invite code into database using service role key for admin operations
+      // This is enforced in the database with Row Level Security policies
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+      const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+      
+      const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      
+      // Use token_economy schema as specified in the MEMORY
+      const { data, error } = await supabaseAdmin
+        .from('token_economy.invite_codes')
+        .insert({
+          code,
+          created_by: session.user.id,
+          expiry_date: expiryDate.toISOString(),
+          max_uses: maxUses,
+          uses: 0,
+          is_active: true,
+          theme_id: themeId // Associate with a specific theme if provided - using snake_case for DB field
+        })
+        .select();
+        
+      if (error) {
+        console.error('Error creating invite code:', error);
+        toast.error('Failed to create invite code');
+        return;
+      }
+      
+      // Update local state
+      if (data && data[0]) {
+        const newCode: InviteCode = {
+          id: data[0].id,
+          code: data[0].code,
+          created_by: data[0].created_by || session.user.id,
+          created_at: data[0].created_at,
+          expiry_date: data[0].expires_at,
+          max_uses: data[0].max_uses,
+          uses: data[0].uses,
+          is_active: data[0].is_active,
+          themeId: data[0].theme_id
+        };
+        
+        // Explicitly type the parameter to avoid 'implicit any' error
+        setInviteCodes((prev: InviteCode[]) => [...prev, newCode]);
+      }
+      
+      toast.success(`Invite code ${code} created successfully`);
+      return code;
+    } catch (error) {
+      console.error('Error creating invite code:', error);
+      toast.error('Failed to create invite code');
+      return null;
+    }
+  };
+  
+  // Toggle the active status of an invite code - requires admin access
+  // Admin features need is_admin=true in users table & service role key
+  const toggleInviteCodeStatus = async (codeId: string, currentStatus: boolean) => {
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Check if user has admin privileges - using the admin security model
+      const isAdmin = await checkAdminAccess(session.user.id);
+      if (!isAdmin) {
+        toast.error('Admin privileges required');
+        return;
+      }
+      
+      // Update invite code status using service role key for admin operations
+      // Using token_economy schema as per the app architecture
+      const { error } = await supabase
+        .from('token_economy.invite_codes')
+        .update({ is_active: !currentStatus })
+        .eq('id', codeId);
+        
+      if (error) {
+        console.error('Error toggling invite code status:', error);
+        toast.error('Failed to update invite code');
+        return;
+      }
+      
+      // Update the local state with the updated invite code status
+      setInviteCodes((prev: InviteCode[]) => 
+        prev.map((code: InviteCode) => 
+          code.id === codeId ? { ...code, is_active: !currentStatus } : code
+        )
+      );
+      
+      toast.success(`Invite code ${currentStatus ? 'deactivated' : 'activated'} successfully`);
+    } catch (error) {
+      console.error('Error toggling invite code status:', error);
+      toast.error('Failed to update invite code');
+    }
+  };
+  
+  const handleUpdateLocation = async (latitude: number, longitude: number) => {
+    try {
+      // Update local state
+      setViewState(prev => ({
+        ...prev,
+        latitude,
+        longitude
+      }));
+      
+      // If admin is changing location for testing, update the current user location too
+      if (currentUser) {
+        setCurrentUser(prev => ({
+          ...prev,
+          location: { 
+            latitude, 
+            longitude,
+            lastUpdated: new Date().toISOString() 
+          }
+        }));
+      }
+      
+      toast.success('Location updated successfully');
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast.error('Failed to update location');
+    }
+  };
+  
+  const handleContentModerationUpdate = async (focusKeywords: string[], contentPrompt: string) => {
+    try {
+      // Update local state
+      setPromotionSettings(prev => ({
+        ...prev,
+        moderationKeywords: focusKeywords,
+        contentFocus: contentPrompt
+      }));
+      
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('User session not found');
+        return;
+      }
+      
+      // Check if user has admin privileges
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (userError || userData?.role !== 'admin') {
+        toast.error('Admin privileges required');
+        return;
+      }
+      
+      // Update moderation settings in database using token_economy schema
+      const { error } = await supabase
+        .from('token_economy.system_settings')
+        .upsert({
+          key: 'moderation_settings',
+          value: {
+            keywords: focusKeywords,
+            prompt: contentPrompt
+          }
+        });
+        
+      if (error) {
+        console.error('Error updating moderation settings:', error);
+        toast.error('Failed to update moderation settings');
+        return;
+      }
+      
+      toast.success('Content moderation settings updated successfully');
+    } catch (error) {
+      console.error('Error updating moderation settings:', error);
+      toast.error('Failed to update moderation settings');
+    }
+  };
+
+  // Post comment handler function for venue/group posts
+  const handlePostComment = async (postId: string, commentText: string): Promise<{success: boolean}> => {
+    try {
+      console.log('Adding comment to post:', postId, commentText);
+      // Here you would typically interact with the database
+      // For now we'll just simulate success
+      return { success: true };
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      return { success: false };
+    }
+  };
+  
+  // Function to generate location posts
+  // Generate posts for a specific location with proper Post type compatibility
+  const generateLocationPosts = (locationId: string, limit?: number): Post[] => {
+    // This would typically fetch posts for a specific location from the database
+    // For now, return a subset of the mock posts based on location ID
+    const filteredPosts = (MOCK_POSTS as any[]).filter(post => post.locationId === locationId)
+      .map(post => ({
+        ...post,
+        // Ensure comments is always an array to match the Post interface in types.ts
+        comments: Array.isArray(post.comments) ? post.comments : []
+      }));
+    
+    // Safely cast to Post[] after ensuring type compatibility
+    const typedPosts = filteredPosts as unknown as Post[];
+    
+    // Apply limit if provided
+    return limit ? typedPosts.slice(0, limit) : typedPosts;
+  };
+  
+  // Renders the appropriate tab content based on current application state
+  const renderTabContent = () => {
+    // If a group is selected, show group detail
+    if (selectedGroup) {
+      return (
+        <GroupDetail 
+          group={selectedGroup} 
+          onBack={() => {
+            // Use proper state management for closing a group
+            setSelectedGroup(null);
+            setAutoChatOpen(false); // Reset auto chat open flag when closing group detail
+            setVenuePosts([]); // Clear venue posts when closing
+          }}
+          allGroups={groups}
+          autoOpenChat={autoChatOpen}
+          venuePosts={venuePosts}
+          onPostComment={handlePostComment}
+          onClickOutside={() => {
+            setSelectedGroup(null);
+            setAutoChatOpen(false);
+            setVenuePosts([]);
+          }}
+        />
+      );
+    }
+    
+    // Otherwise show the tab content
+    switch (activeTab) {
+      case 'home':
+        return (
+          <div className="flex-1 overflow-y-auto pb-16 noise-texture">
+            {activeEventTheme && showBanner && (
+              <div className="px-3 pt-3">
+                {/* Pass the promotionSettings state directly to the EventBanner */}
+                <EventBanner 
+                  theme={activeEventTheme}
+                  onDismiss={() => setShowBanner(false)}
+                  onLearn={() => setShowEventModal(true)}
+                  promotionSettings={promotionSettings}
+                />
+              </div>
+            )}
+            <Stories 
+              groups={groups} 
+              userStories={userStories}
+              onCreateStory={() => setShowStoryModal(true)}
+            />
+            <Feed 
+              posts={posts} 
+              groups={groups} 
+              onGroupSelect={handleGroupSelect}
+              onMapViewToggle={toggleMapView}
+              selectedVenue={selectedVenue}
+            />
+          </div>
+        );
+      case 'explore':
+        return (
+          <div className="flex-1 overflow-y-auto pb-16 noise-texture">
+            <LocalContentFeed />
+          </div>
+        );
+      case 'search':
+        return <SearchView groups={groups || []} onGroupSelect={handleGroupSelect} />;
+      case 'notifications':
+        return <Notifications activityEvents={activityEvents} />;
+      case 'profile':
+        return (
+          <Profile 
+            stats={appStats} 
+            userStories={userStories} 
+            onShowAdminPanel={() => setShowAdminPanel(true)}
+          />
+        );
+      case 'store':
+        return <TokenStore onClose={() => setActiveTab('home')} />;
+      case 'ratings':
+        return <RatingsView onClose={() => setActiveTab('home')} />;
+      case 'leaderboard':
+        return <Leaderboard />;
+      default:
+        return null;
+    }
+  };
+
+  // Content type selection modal
+  const ContentTypeModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#121826] rounded-xl p-6 w-full max-w-sm border border-[--color-accent-primary]/20">
+        <h3 className="text-xl font-bold text-white mb-6 text-center">Create Content</h3>
+        <div className="space-y-4">
+          <button
+            onClick={() => {
+              // Handle content type selection for story
+              if (typeof setShowContentTypeModal === 'function') setShowContentTypeModal(false);
+              if (typeof setShowStoryModal === 'function') setShowStoryModal(true);
+            }}
+            className="w-full bg-gradient-to-r from-[--color-accent-primary] to-[--color-accent-secondary] text-white p-4 rounded-xl font-medium hover:opacity-90 transition-opacity"
+          >
+            Create Story
+          </button>
+          <button
+            onClick={() => {
+              // Handle content type selection for post
+              if (typeof setShowContentTypeModal === 'function') setShowContentTypeModal(false);
+              if (typeof setShowCreatePost === 'function') setShowCreatePost(true);
+            }}
+            className="w-full bg-[#1a2234] text-white p-4 rounded-xl font-medium hover:bg-[#1a2234]/80 transition-colors"
+          >
+            Create Post
+          </button>
+          <button
+            onClick={() => setShowContentTypeModal(false)}
+            className="w-full text-gray-400 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Determine header style based on active theme
+  const getHeaderStyle = () => {
+    if (activeEventTheme) {
+      return {
+        background: `linear-gradient(135deg, ${activeEventTheme.primaryColor}cc, ${activeEventTheme.secondaryColor}cc)`,
+        borderBottom: `1px solid ${activeEventTheme.accentColor}50`
+      };
+    }
+    return {
+      background: 'linear-gradient(135deg, rgba(10,10,10,0.8), rgba(0,0,0,0.9))',
+      borderBottom: '1px solid rgba(139,92,246,0.1)'
+    };
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-[--color-bg-primary] relative overflow-hidden noise-texture">
+      {/* Voice Assistant */}
+      <VoiceAssistant />
+
+      {/* Admin Panel */}
+      {showAdminPanel && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 rounded-xl w-full max-w-lg p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center">
+                <Settings className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-xl font-semibold">Admin Panel</h2>
+              </div>
+              <button 
+                onClick={() => setShowAdminPanel(false)}
+                className="p-1 rounded-full hover:bg-gray-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Location Management */}
+              <div className="border-b border-gray-700 pb-4">
+                <h3 className="text-md font-semibold mb-3">Location Management</h3>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      placeholder="Latitude" 
+                      className="flex-1 p-2 bg-gray-800 rounded"
+                      step="0.0001"
+                      id="admin-latitude"
+                      defaultValue={viewState.latitude.toString()}
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="Longitude" 
+                      className="flex-1 p-2 bg-gray-800 rounded"
+                      step="0.0001"
+                      id="admin-longitude"
+                      defaultValue={viewState.longitude.toString()}
+                    />
+                  </div>
+                  <button 
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium"
+                    onClick={() => {
+                      const latEl = document.getElementById('admin-latitude') as HTMLInputElement;
+                      const lngEl = document.getElementById('admin-longitude') as HTMLInputElement;
+                      if (latEl && lngEl) {
+                        handleUpdateLocation(parseFloat(latEl.value), parseFloat(lngEl.value));
+                      }
+                    }}
+                  >
+                    Update Location
+                  </button>
+                </div>
+              </div>
+              
+              {/* Invite Code Management */}
+              <div className="border-b border-gray-700 pb-4">
+                <h3 className="text-md font-semibold mb-3">Invite Codes</h3>
+                <div className="space-y-4">
+                  {/* Create new invite code */}
+                  <div className="bg-gray-800 p-3 rounded-lg">
+                    <h4 className="text-sm font-medium mb-2">Create New Invite Code</h4>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div>
+                        <label className="text-xs block mb-1">Expiry Days</label>
+                        <input 
+                          type="number" 
+                          id="expiry-days" 
+                          defaultValue="7" 
+                          min="1" 
+                          max="90"
+                          className="w-full p-1.5 bg-gray-900 rounded text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs block mb-1">Max Uses</label>
+                        <input 
+                          type="number" 
+                          id="max-uses" 
+                          defaultValue="1" 
+                          min="1" 
+                          max="1000"
+                          className="w-full p-1.5 bg-gray-900 rounded text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="text-xs block mb-1">Associated Theme</label>
+                      <select 
+                        id="theme-select"
+                        className="w-full p-2 bg-gray-900 rounded text-sm"
+                      >
+                        <option value="">None - Standard Invite</option>
+                        {EVENT_THEMES.map(theme => (
+                          <option key={theme.id} value={theme.id}>{theme.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button 
+                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium"
+                      onClick={async () => {
+                        const expiryDaysEl = document.getElementById('expiry-days') as HTMLInputElement;
+                        const maxUsesEl = document.getElementById('max-uses') as HTMLInputElement;
+                        const themeSelectEl = document.getElementById('theme-select') as HTMLSelectElement;
+                        
+                        const expiryDays = parseInt(expiryDaysEl?.value || '7');
+                        const maxUses = parseInt(maxUsesEl?.value || '1');
+                        const themeId = themeSelectEl?.value || undefined;
+                        
+                        // Create the invite code
+                        await handleCreateInviteCode(expiryDays, maxUses, themeId);
+                        
+                        // Reload invite codes
+                        loadInviteCodes();
+                      }}
+                    >
+                      Generate Invite Code
+                    </button>
+                  </div>
+                  
+                  {/* List of existing invite codes */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-medium">Existing Invite Codes</h4>
+                      <button 
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                        onClick={() => loadInviteCodes()}
+                      >
+                        Refresh List
+                      </button>
+                    </div>
+                    
+                    {inviteCodes.length === 0 ? (
+                      <div className="text-gray-500 text-sm p-4 text-center">
+                        No invite codes found. Create one above!
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {inviteCodes.map(code => {
+                          // Find associated theme if any
+                          const theme = code.themeId ? EVENT_THEMES.find(t => t.id === code.themeId) : undefined;
+                          const isExpired = new Date(code.expiry_date) < new Date();
+                          
+                          return (
+                            <div 
+                              key={code.id} 
+                              className={`bg-gray-900 p-3 rounded-lg border ${isExpired ? 'border-red-500/30' : code.is_active ? 'border-green-500/30' : 'border-yellow-500/30'}`}
+                            >
+                              <div className="flex justify-between">
+                                <div className="font-mono text-sm">{code.code}</div>
+                                <div className="flex items-center gap-1">
+                                  {isExpired ? (
+                                    <span className="text-xs bg-red-900/50 text-red-300 px-2 py-0.5 rounded">Expired</span>
+                                  ) : code.is_active ? (
+                                    <span className="text-xs bg-green-900/50 text-green-300 px-2 py-0.5 rounded">Active</span>
+                                  ) : (
+                                    <span className="text-xs bg-yellow-900/50 text-yellow-300 px-2 py-0.5 rounded">Disabled</span>
+                                  )}
+                                  <button 
+                                    className={`text-xs px-2 py-0.5 rounded ${isExpired ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : code.is_active ? 'bg-red-900/50 hover:bg-red-800/50 text-red-300' : 'bg-green-900/50 hover:bg-green-800/50 text-green-300'}`}
+                                    onClick={() => !isExpired && toggleInviteCodeStatus(code.id, code.is_active)}
+                                    disabled={isExpired}
+                                  >
+                                    {code.is_active ? 'Disable' : 'Enable'}
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-x-4 mt-1 text-xs text-gray-400">
+                                <div>Uses: {code.uses}/{code.max_uses}</div>
+                                <div>Expires: {new Date(code.expiry_date).toLocaleDateString()}</div>
+                              </div>
+                              
+                              {theme && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <div className="flex-shrink-0 w-5 h-5 rounded-full" style={{ backgroundColor: theme.colors.primary }}></div>
+                                  <div className="text-xs">{theme.name} Theme</div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Promotional Theme Settings */}
+              <div className="border-b border-gray-700 pb-4">
+                <h3 className="text-md font-semibold mb-3">Promotion Settings</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm">Enable Promotions</label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={promotionSettings.isEnabled}
+                        onChange={(e) => setPromotionSettings(prev => ({ ...prev, isEnabled: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm">Token Reward</label>
+                    <input 
+                      type="number" 
+                      value={promotionSettings.tokenReward} 
+                      onChange={(e) => setPromotionSettings(prev => ({ ...prev, tokenReward: parseInt(e.target.value) || 0 }))}
+                      className="w-20 p-1 bg-gray-800 rounded text-center"
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm block mb-2">Promotion Theme</label>
+                    <select 
+                      className="w-full p-2 bg-gray-800 rounded"
+                      value={promotionSettings.promotionTheme.id}
+                      onChange={(e) => {
+                        const theme = EVENT_THEMES.find(theme => theme.id === e.target.value);
+                        if (theme) {
+                          setPromotionSettings(prev => ({ ...prev, promotionTheme: theme }));
+                        }
+                      }}
+                    >
+                      {EVENT_THEMES.map(theme => (
+                        <option key={theme.id} value={theme.id}>{theme.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm block mb-2">Special Offer Text</label>
+                    <input 
+                      type="text" 
+                      value={promotionSettings.specialOffer} 
+                      onChange={(e) => setPromotionSettings(prev => ({ ...prev, specialOffer: e.target.value }))}
+                      className="w-full p-2 bg-gray-800 rounded"
+                      placeholder="Special Offer"
+                      maxLength={20}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">This appears in the banner as the special offer tag</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm block mb-2">Custom Banner Image URL</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={promotionSettings.customBannerUrl || ''} 
+                        onChange={(e) => setPromotionSettings(prev => ({ ...prev, customBannerUrl: e.target.value }))}
+                        className="flex-1 p-2 bg-gray-800 rounded"
+                        placeholder="https://example.com/banner-image.jpg"
+                      />
+                      <button 
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                        onClick={() => setPromotionSettings(prev => ({ ...prev, customBannerUrl: '' }))}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Leave empty to use the default theme banner</p>
+                    
+                    {/* Preview of custom banner image */}
+                    {promotionSettings.customBannerUrl && (
+                      <div className="mt-2">
+                        <p className="text-xs mb-1">Banner Preview:</p>
+                        <div className="h-20 rounded overflow-hidden">
+                          <img 
+                            src={promotionSettings.customBannerUrl} 
+                            alt="Custom banner preview" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Handle image load error
+                              const target = e.target as HTMLImageElement;
+                              target.src = "https://placehold.co/600x200/gray/white?text=Invalid+Image+URL";
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button 
+                    className="w-full py-2 bg-green-600 hover:bg-green-700 rounded font-medium"
+                    onClick={() => handleUpdatePromotionSettings(promotionSettings)}
+                  >
+                    Save Promotion Settings
+                  </button>
+                </div>
+              </div>
+              
+              {/* Promotional Boxes Management */}
+              <div className="border-b border-gray-700 pb-4">
+                <h3 className="text-md font-semibold mb-3">Promotional Boxes</h3>
+                <div className="space-y-3">
+                  {promotionSettings.promotionalBoxes.map((box, index) => (
+                    <div key={index} className="bg-gray-800 p-3 rounded-lg space-y-2">
+                      <div className="flex justify-between">
+                        <div className="font-medium">{box.title}</div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={box.isEnabled}
+                            onChange={(e) => {
+                              const updatedBoxes = [...promotionSettings.promotionalBoxes];
+                              updatedBoxes[index] = { ...updatedBoxes[index], isEnabled: e.target.checked };
+                              setPromotionSettings(prev => ({ ...prev, promotionalBoxes: updatedBoxes }));
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input 
+                            type="text" 
+                            value={box.title} 
+                            onChange={(e) => {
+                              const updatedBoxes = [...promotionSettings.promotionalBoxes];
+                              updatedBoxes[index] = { ...updatedBoxes[index], title: e.target.value };
+                              setPromotionSettings(prev => ({ ...prev, promotionalBoxes: updatedBoxes }));
+                            }}
+                            className="w-full p-1.5 bg-gray-900 rounded text-sm"
+                            placeholder="Title"
+                          />
+                        </div>
+                        <div>
+                          <input 
+                            type="text" 
+                            value={box.description} 
+                            onChange={(e) => {
+                              const updatedBoxes = [...promotionSettings.promotionalBoxes];
+                              updatedBoxes[index] = { ...updatedBoxes[index], description: e.target.value };
+                              setPromotionSettings(prev => ({ ...prev, promotionalBoxes: updatedBoxes }));
+                            }}
+                            className="w-full p-1.5 bg-gray-900 rounded text-sm"
+                            placeholder="Description"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <input 
+                          type="text" 
+                          value={box.discountText} 
+                          onChange={(e) => {
+                            const updatedBoxes = [...promotionSettings.promotionalBoxes];
+                            updatedBoxes[index] = { ...updatedBoxes[index], discountText: e.target.value };
+                            setPromotionSettings(prev => ({ ...prev, promotionalBoxes: updatedBoxes }));
+                          }}
+                          className="w-full p-1.5 bg-gray-900 rounded text-sm font-medium"
+                          placeholder="Discount Text"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">This is the main promotional text in the box</p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs">Display Order:</label>
+                        <input 
+                          type="number" 
+                          value={box.displayOrder} 
+                          onChange={(e) => {
+                            const updatedBoxes = [...promotionSettings.promotionalBoxes];
+                            updatedBoxes[index] = { ...updatedBoxes[index], displayOrder: parseInt(e.target.value) || 1 };
+                            setPromotionSettings(prev => ({ ...prev, promotionalBoxes: updatedBoxes }));
+                          }}
+                          className="w-16 p-1 bg-gray-900 rounded text-sm text-center"
+                          min="1"
+                          max="10"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium"
+                    onClick={() => {
+                      // Add a new empty promotional box
+                      const newBox: PromotionBox = {
+                        title: 'New Promotion',
+                        description: 'Description',
+                        discountText: 'DISCOUNT TEXT',
+                        isEnabled: true,
+                        displayOrder: promotionSettings.promotionalBoxes.length + 1
+                      };
+                      setPromotionSettings(prev => ({
+                        ...prev,
+                        promotionalBoxes: [...prev.promotionalBoxes, newBox]
+                      }));
+                    }}
+                  >
+                    Add New Promotional Box
+                  </button>
+                </div>
+              </div>
+              
+              {/* Content Moderation */}
+              <div className="border-b border-gray-700 pb-4">
+                <h3 className="text-md font-semibold mb-3">Content Moderation</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm block mb-2">Focus Keywords (comma separated)</label>
+                    <input 
+                      type="text" 
+                      value={promotionSettings.moderationKeywords.join(', ')} 
+                      onChange={(e) => {
+                        const keywords = e.target.value.split(',').map(k => k.trim()).filter(Boolean);
+                        setPromotionSettings(prev => ({ ...prev, moderationKeywords: keywords }));
+                      }}
+                      className="w-full p-2 bg-gray-800 rounded"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm block mb-2">Content Focus Prompt</label>
+                    <textarea 
+                      value={promotionSettings.contentFocus} 
+                      onChange={(e) => setPromotionSettings(prev => ({ ...prev, contentFocus: e.target.value }))}
+                      className="w-full p-2 bg-gray-800 rounded min-h-[100px]"
+                      placeholder="Provide guidance for content moderation and focus"
+                    />
+                  </div>
+                  
+                  <button 
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                    onClick={() => handleContentModerationUpdate(
+                      promotionSettings.moderationKeywords, 
+                      promotionSettings.contentFocus
+                    )}
+                  >
+                    Update Moderation Settings
+                  </button>
+                </div>
+              </div>
+              
+              {/* Invite Code Management */}
+              <div>
+                <h3 className="text-md font-semibold mb-3">Invite Codes</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm block mb-2">Associated Theme</label>
+                    <select 
+                      className="w-full p-2 bg-gray-800 rounded mb-3"
+                      id="invite-theme"
+                    >
+                      <option value="">No theme (default)</option>
+                      {EVENT_THEMES.map(theme => (
+                        <option key={theme.id} value={theme.id}>{theme.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mb-3">This theme will be activated when users use this invite code</p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      placeholder="Expiry (days)" 
+                      className="flex-1 p-2 bg-gray-800 rounded"
+                      defaultValue="7"
+                      min="1"
+                      id="invite-expiry"
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="Max uses" 
+                      className="flex-1 p-2 bg-gray-800 rounded"
+                      defaultValue="1"
+                      min="1"
+                      id="invite-max-uses"
+                    />
+                  </div>
+                  
+                  <button 
+                    className="w-full py-2 bg-yellow-600 hover:bg-yellow-700 rounded font-medium"
+                    onClick={() => {
+                      const expiryEl = document.getElementById('invite-expiry') as HTMLInputElement;
+                      const maxUsesEl = document.getElementById('invite-max-uses') as HTMLInputElement;
+                      const themeEl = document.getElementById('invite-theme') as HTMLSelectElement;
+                      if (expiryEl && maxUsesEl && themeEl) {
+                        handleCreateInviteCode(
+                          parseInt(expiryEl.value) || 7,
+                          parseInt(maxUsesEl.value) || 1,
+                          themeEl.value || undefined // Only pass themeId if one was selected
+                        );
+                      }
+                    }}
+                  >
+                    Generate New Invite Code
+                  </button>
+                  
+                  {inviteCodes.length > 0 && (
+                    <div className="mt-3 max-h-[200px] overflow-y-auto">
+                      <h4 className="text-sm font-medium mb-2">Recent Invite Codes</h4>
+                      <div className="space-y-2">
+                        {inviteCodes.map(code => (
+                          <div key={code.id} className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                            <div>
+                              <p className="font-mono text-yellow-400">{code.code}</p>
+                              <div className="flex flex-col gap-1">
+                                <p className="text-xs text-gray-400">
+                                  Expires: {new Date(code.expiry_date).toLocaleDateString()}
+                                </p>
+                                {code.themeId && (
+                                  <p className="text-xs">
+                                    <span className="bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded-sm">
+                                      Theme: {EVENT_THEMES.find(t => t.id === code.themeId)?.name || code.themeId}
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm">{code.uses}/{code.max_uses} uses</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* App Header */}
+      <header 
+        className="sticky top-0 z-40 p-4 shadow-lg transition-all duration-300 glass-morphism"
+        style={getHeaderStyle()}
+      >
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            {activeEventTheme && (
+              <Sparkles 
+                size={0} 
+                className="animate-pulse" 
+                style={{ color: activeEventTheme.accentColor }} 
+              />
+            )}
+            <Map size={22} className="text-[--color-accent-primary]" />
+            <span className="font-['Clash_Display'] tracking-tight">
+              {activeEventTheme ? activeEventTheme.name : 'SottoCity'}
+            </span>
+          </h1>
+          
+          <div className="flex gap-3 items-center">
+            {filteredByInviteCode && (
+              <button 
+                onClick={resetFilters}
+                className="text-xs bg-[--color-accent-primary]/20 hover:bg-[--color-accent-primary]/30 px-2 py-1 rounded-lg text-white"
+              >
+                Reset Filters
+              </button>
+            )}
+            
+            <TokenBalance onClick={() => setShowTokenStore(true)} />
+            
+            <button 
+              onClick={() => setShowThemeCustomizer(true)}
+              className="p-2 rounded-full bg-[--color-accent-primary]/10 text-[--color-text-primary] hover:bg-[--color-accent-primary]/20 transition-colors"
+              title="Customize theme"
+            >
+              <Palette size={18} className="text-[--color-accent-primary]" />
+            </button>
+            
+            <button 
+              onClick={() => setShowInviteCodeEntry(true)}
+              className="p-2 rounded-full bg-[--color-accent-primary]/10 text-[--color-text-primary] hover:bg-[--color-accent-primary]/20 transition-colors"
+              title="Enter invitation code"
+            >
+              <QrCode size={18} className="text-[--color-accent-primary]" />
+            </button>
+            
+            {(activeTab === 'home' || activeTab === 'explore') && !showGroupDetail && (
+              <button 
+                onClick={toggleMapView}
+                className="bg-gradient-to-r from-[--color-accent-primary] to-[--color-accent-secondary] hover:opacity-90 px-3 py-1.5 rounded-lg text-white text-sm font-medium flex items-center gap-1.5 transition-all shadow-lg"
+              >
+                <Map size={16} />
+                {isMapVisible ? 'Hide Map' : 'Map'}
+              </button>
+            )}
+            
+            {(activeTab !== 'home' && activeTab !== 'explore' || showGroupDetail) && (
+              <button 
+                onClick={() => {
+                  setActiveTab('home');
+                  setSelectedGroup(null);
+                }}
+                className="p-2 rounded-full bg-[--color-accent-primary]/10 text-[--color-text-primary] hover:bg-[--color-accent-primary]/20 transition-colors"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        {renderTabContent()}
+        
+        {/* Map Overlay */}
+        <AnimatePresence mode="wait">
+          {isMapVisible && (
+            <motion.div 
+              ref={mapContainerRef}
+              className="absolute inset-0 z-30"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              {!mapLoaded ? (
+                <div className="h-full flex items-center justify-center bg-[--color-bg-primary]">
+                  <div className="flex flex-col items-center">
+                    <div className="premium-loader"></div>
+                    <p className="mt-4 text-white">Loading Map...</p>
+                  </div>
+                </div>
+              ) : (
+                <Suspense fallback={null}>
+                  {mapError ? (
+                    <div className="h-full flex items-center justify-center bg-[--color-bg-secondary]">
+                      <div className="text-center p-8 premium-card">
+                        <h2 className="text-2xl font-bold text-white mb-4">Map Configuration Required</h2>
+                        <p className="text-gray-300">{mapError}</p>
+                        <p className="text-sm text-gray-400 mt-2">Please add your Mapbox token to the .env file.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <MapView
+                      viewState={viewState}
+                      onMove={evt => setViewState(evt.viewState)}
+                      mapboxToken={mapboxToken}
+                      groups={groups}
+                      groupActivities={groupActivities}
+                      userLocations={userLocations}
+                      selectedGroup={selectedGroup}
+                      onGroupSelect={handleGroupSelect}
+                      userHeatmapData={userHeatmapData}
+                      userHeatmapLayer={userHeatmapLayer}
+                      appStats={appStats}
+                      activityEvents={activityEvents}
+                      onClose={() => setIsMapVisible(false)}
+                      onViewVenuePosts={handleViewVenuePosts}
+                    />
+                  )}
+                </Suspense>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Mobile Nav Bar */}
+      <MobileNavBar 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange} 
+        onShowTokenStore={() => setShowTokenStore(true)}
+      />
+      
+      {/* Modals */}
+      {showInviteCodeEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <InviteCodeEntry 
+            onSuccess={handleInviteCodeSuccess}
+            onCancel={() => setShowInviteCodeEntry(false)}
+          />
+        </div>
+      )}
+      
+      {showEventModal && activeEventTheme && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <EventModal 
+            theme={activeEventTheme}
+            onClose={() => setShowEventModal(false)}
+          />
+        </div>
+      )}
+      
+      {showThemeCustomizer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <ThemeCustomizer
+            currentTheme={currentTheme}
+            onThemeChange={handleThemeChange}
+            onClose={() => setShowThemeCustomizer(false)}
+          />
+        </div>
+      )}
+      
+      {/* Content type selection modal */}
+      <AnimatePresence>
+        {showContentTypeModal && <ContentTypeModal />}
+      </AnimatePresence>
+
+      {/* Story Modal */}
+      {showStoryModal && (
+        <StoryModal 
+          onClose={() => setShowStoryModal(false)}
+          onStoryCreated={(story) => {
+            setUserStories(prev => [story, ...prev]);
+            setShowStoryModal(false);
+          }}
+        />
+      )}
+
+      {/* Post Creation Modal */}
+      {showCreatePost && (
+        <CreatePost 
+          onClose={() => setShowCreatePost(false)}
+          onPostCreated={() => {
+            setShowCreatePost(false);
+            // Optionally refresh posts here
+          }}
+        />
+      )}
+
+      {/* Token Store Modal */}
+      {showTokenStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <TokenStore onClose={() => setShowTokenStore(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;

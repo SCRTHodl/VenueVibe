@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --color-bg-primary: #000000;
-  --color-bg-secondary: #0a0a0a;
-  --color-bg-tertiary: #121212;
-  --color-accent-primary: #8b5cf6;
-  --color-accent-secondary: #3b82f6;
-  --color-text-primary: #f9fafb;
-  --color-text-secondary: #d1d5db;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f4f6;
+  --color-bg-tertiary: #f9fafb;
+  --color-accent-primary: #4A90E2;
+  --color-accent-secondary: #50E3C2;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
   
   /* Font settings */
   --font-main: 'Space Grotesk', sans-serif;

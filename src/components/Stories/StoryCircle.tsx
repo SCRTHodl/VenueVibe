@@ -47,7 +47,7 @@ export const StoryCircle: React.FC<StoryCircleProps> = ({ group, isPromoting = f
             isPromoting ? 'bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500' : 'bg-blue-600'
           }`}
         >
-          <div className="w-full h-full bg-[#1a2234] rounded-full p-[2px] flex items-center justify-center overflow-hidden">
+          <div className="w-full h-full rounded-full p-[2px] flex items-center justify-center overflow-hidden" style={{backgroundColor: '#004aad'}}>
             {group.photos && group.photos.length > 0 ? (
               <img
                 src={group.photos[0]}

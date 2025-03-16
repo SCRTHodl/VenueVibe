@@ -49,6 +49,9 @@ CREATE TABLE token_economy.story_token_data (
   view_rewards INTEGER NOT NULL DEFAULT 0,
   tip_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   total_tips INTEGER NOT NULL DEFAULT 0,
+  premium_content BOOLEAN NOT NULL DEFAULT FALSE,
+  unlock_cost INTEGER NOT NULL DEFAULT 15,
+  unlocks_count INTEGER NOT NULL DEFAULT 0,
   nft_minted BOOLEAN NOT NULL DEFAULT FALSE,
   nft_token_id TEXT,
   nft_contract_address TEXT,
@@ -98,6 +101,21 @@ CREATE TABLE token_economy.nft_items (
 CREATE INDEX idx_nft_items_owner_id ON token_economy.nft_items(owner_id);
 CREATE INDEX idx_nft_items_creator_id ON token_economy.nft_items(creator_id);
 CREATE INDEX idx_nft_items_story_id ON token_economy.nft_items(story_id);
+
+-- Content Access table to track premium content unlocks
+CREATE TABLE token_economy.content_access (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL,
+  content_id TEXT NOT NULL,
+  access_type TEXT NOT NULL DEFAULT 'premium_content',
+  tokens_spent INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, content_id)
+);
+
+CREATE INDEX idx_content_access_user_id ON token_economy.content_access(user_id);
+CREATE INDEX idx_content_access_content_id ON token_economy.content_access(content_id);
 
 -- Create functions and triggers
 

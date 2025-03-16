@@ -11,11 +11,11 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChan
   const getTabClass = (tab: string) => {
     return activeTab === tab
       ? 'text-[--color-accent-primary]'
-      : 'text-gray-400 hover:text-gray-200';
+      : 'text-gray-500 hover:text-gray-700';
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[--color-accent-primary]/10 shadow-lg z-40">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
       <div className="flex justify-around items-center py-1">
         <button
           onClick={() => onTabChange('home')}
@@ -37,7 +37,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChan
           onClick={() => onTabChange('create')}
           className={`p-1.5 flex flex-col items-center ${getTabClass('create')}`}
         >
-          <div className={`p-1 rounded-full ${activeTab === 'create' ? 'bg-[--color-accent-primary]' : 'bg-gray-500'}`}>
+          <div className={`p-1 rounded-full ${activeTab === 'create' ? 'bg-[--color-accent-primary]' : 'bg-gray-400'}`}>
             <Plus size={20} color="white" />
           </div>
           <span className={`text-[10px] mt-0.5 ${getTabClass('create')}`}>Post</span>

@@ -198,6 +198,58 @@ interface AIInstruction {
 3. Participate in events
 4. Build reputation
 
+### Agent Memory System
+
+#### Understanding AI Memory
+The AI assistant uses an advanced memory system to provide personalized experiences:
+- **Persistent Memory**: The AI remembers important information across conversations
+- **Context-Aware**: Memories are retrieved based on relevance to your current conversation
+- **Importance Levels**: Critical information is retained longer than less important details
+
+#### Memory Types
+- **Preferences**: Your settings and UI choices
+- **Conversations**: Important dialogue history
+- **Profile**: Your personal information and style
+- **Tasks**: Goals and objectives you're working on
+
+#### Managing AI Memory
+```typescript
+// Example memory commands
+const memoryCommands = {
+  "remember this": saveImportantMemory,
+  "forget about": removeSpecificMemory,
+  "what do you remember about": retrieveMemories
+};
+```
+
+1. **Saving Important Information**
+   - Use "remember this" to flag important information
+   - The AI will automatically remember critical preferences
+   - Set importance when explicitly saving memories
+
+2. **Reviewing Memories**
+   - Ask "what do you remember about [topic]?"
+   - Use the Memory Dashboard in profile settings
+   - Check context indicators in chat responses
+
+3. **Managing Privacy**
+   - Delete specific memories via the Memory Dashboard
+   - Adjust memory retention in privacy settings
+   - Use incognito mode for no memory retention
+
+#### AI Personalities
+You can customize AI behavior through invite codes that unlock different personalities:
+
+- **Default**: Helpful, neutral assistant
+- **Professional**: Formal, business-focused
+- **Creative**: Imaginative, idea-focused
+- **Technical**: Detail-oriented, precise
+
+To activate a personality:
+1. Receive an invite code
+2. Enter it in Settings → AI Customization
+3. The AI will adapt its behavior accordingly
+
 ### Token Economy
 1. Earn tokens through participation
 2. Spend wisely on features

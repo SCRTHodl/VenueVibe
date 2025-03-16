@@ -1,13 +1,14 @@
 import React from 'react';
-import { Clock, Users, ArrowRight } from 'lucide-react';
+import { Clock, Users, ArrowRight, MessageCircle, Map } from 'lucide-react';
 import { Group } from '../../types';
 
 interface MapPopupProps {
   group: Group;
   onDetails: () => void;
+  onViewPosts?: () => void;
 }
 
-export const MapPopup: React.FC<MapPopupProps> = ({ group, onDetails }) => {
+export const MapPopup: React.FC<MapPopupProps> = ({ group, onDetails, onViewPosts }) => {
   const getStatusColor = () => {
     if (!group.popularTimes) return 'bg-gray-500';
     
@@ -58,16 +59,29 @@ export const MapPopup: React.FC<MapPopupProps> = ({ group, onDetails }) => {
         </div>
       )}
       
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDetails();
-        }}
-        className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center justify-center gap-1.5 transition-colors"
-      >
-        <span>View Details</span>
-        <ArrowRight size={12} />
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetails();
+          }}
+          className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Map size={12} />
+          <span>Details</span>
+        </button>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewPosts?.();
+          }}
+          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <MessageCircle size={12} />
+          <span>Posts & Chat</span>
+        </button>
+      </div>
     </div>
   );
 };

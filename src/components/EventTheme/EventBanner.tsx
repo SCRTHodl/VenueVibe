@@ -1,15 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Info, X, Award, Tag, ExternalLink, Clock, MapPin, Sparkles } from 'lucide-react';
-import type { EventTheme } from '../../types';
+import { Calendar, Info, X, Award, Tag, ExternalLink, Clock, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { EventTheme } from '../../types';
+
+// Define the interface here to avoid import issues
+interface PromotionBox {
+  title: string;
+  description: string;
+  discountText: string;
+  isEnabled: boolean;
+  displayOrder: number;
+}
+
+interface PromotionSettings {
+  isEnabled: boolean;
+  tokenReward: number;
+  promotionTheme: EventTheme;
+  moderationKeywords: string[];
+  contentFocus: string;
+  promotionalBoxes: PromotionBox[];
+  specialOffer: string;
+  customBannerUrl?: string; // Optional custom banner URL
+}
 
 interface EventBannerProps {
   theme: EventTheme;
   onDismiss: () => void;
   onLearn: () => void;
+  promotionSettings?: PromotionSettings;
 }
 
-export const EventBanner: React.FC<EventBannerProps> = ({ theme, onDismiss, onLearn }) => {
+export const EventBanner: React.FC<EventBannerProps> = ({ theme, onDismiss, onLearn, promotionSettings }) => {
+  // Return null if promotions are disabled
+  if (promotionSettings && !promotionSettings.isEnabled) {
+    return null;
+  }
   const [highlight, setHighlight] = useState(false);
   const [showSponsor, setShowSponsor] = useState(false);
   
@@ -76,10 +101,11 @@ export const EventBanner: React.FC<EventBannerProps> = ({ theme, onDismiss, onLe
       <div className="relative">
         {/* Banner Image with professional overlay */}
         <div className="h-28 overflow-hidden relative">
-          {theme.bannerUrl && (
+          {/* Use custom banner URL from promotionSettings if available, otherwise use theme's banner */}
+          {((promotionSettings?.customBannerUrl) || theme.bannerUrl) && (
             <>
               <img 
-                src={theme.bannerUrl} 
+                src={promotionSettings?.customBannerUrl || theme.bannerUrl} 
                 alt={theme.name} 
                 className="w-full h-full object-cover"
               />
@@ -132,7 +158,7 @@ export const EventBanner: React.FC<EventBannerProps> = ({ theme, onDismiss, onLe
             }}
             transition={{ duration: 0.5 }}
           >
-            <span>SPECIAL OFFER</span>
+            <span>{promotionSettings?.specialOffer || 'SPECIAL OFFER'}</span>
           </motion.div>
           
           {/* Close button */}
@@ -200,17 +226,41 @@ export const EventBanner: React.FC<EventBannerProps> = ({ theme, onDismiss, onLe
             }}
             transition={{ duration: 0.5 }}
           >
-            <div 
-              className="px-2 py-1 rounded-lg text-xs flex items-center gap-1.5"
-              style={{ 
-                backgroundColor: `${theme.accentColor}20`,
-                color: theme.accentColor,
-                border: `1px solid ${theme.accentColor}30`
-              }}
-            >
-              <Tag size={10} />
-              <span className="font-semibold">25% OFF DRINKS & APPETIZERS</span>
-            </div>
+            {promotionSettings?.promotionalBoxes && promotionSettings.promotionalBoxes.length > 0 ? (
+              // Find the first enabled promotional box or default to the first one
+              (() => {
+                const activeBoxes = promotionSettings.promotionalBoxes
+                  .filter((box: { isEnabled: boolean }) => box.isEnabled)
+                  .sort((a: { displayOrder: number }, b: { displayOrder: number }) => a.displayOrder - b.displayOrder);
+                const box: PromotionBox = activeBoxes.length > 0 ? activeBoxes[0] : promotionSettings.promotionalBoxes[0];
+                
+                return (
+                  <div 
+                    className="px-2 py-1 rounded-lg text-xs flex items-center gap-1.5"
+                    style={{ 
+                      backgroundColor: `${theme.accentColor}20`,
+                      color: theme.accentColor,
+                      border: `1px solid ${theme.accentColor}30`
+                    }}
+                  >
+                    <Tag size={10} />
+                    <span className="font-semibold">{box.discountText}</span>
+                  </div>
+                );
+              })()
+            ) : (
+              <div 
+                className="px-2 py-1 rounded-lg text-xs flex items-center gap-1.5"
+                style={{ 
+                  backgroundColor: `${theme.accentColor}20`,
+                  color: theme.accentColor,
+                  border: `1px solid ${theme.accentColor}30`
+                }}
+              >
+                <Tag size={10} />
+                <span className="font-semibold">25% OFF DRINKS & APPETIZERS</span>
+              </div>
+            )}
           </motion.div>
           
           {/* Call to action */}

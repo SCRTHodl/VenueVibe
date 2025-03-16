@@ -2,6 +2,9 @@
 
 A real-time social platform for discovering and engaging with local venues, events, and communities with an integrated token economy and NFT capabilities.
 
+![Status](https://img.shields.io/badge/status-ready%20for%20deployment-green)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+
 ## Project Overview
 
 MapChat is a modern social platform that combines location-based discovery with real-time social features. Users can explore local venues, share stories, and engage with event-specific content through a token-based economy.
@@ -16,6 +19,7 @@ MapChat is a modern social platform that combines location-based discovery with 
 - Tipping system for creator support
 - Real-time chat with 5-minute message expiry
 - Admin panel with content moderation tools
+- Token economy with dedicated schema design
 
 ## Technical Architecture
 
@@ -190,10 +194,45 @@ The application includes a robust token economy with these key features:
 ### Token Spending
 
 - **Tipping**: Send 5, 10, or 25 tokens to creators you appreciate
-- **NFT Minting**: Convert popular stories into NFTs (future feature)
-- **Premium Features**: Unlock enhanced story creation tools (future feature)
+- **Premium Content Unlocking**: Spend tokens to access premium stories
+- **NFT Minting**: Convert popular stories into NFTs
+- **Premium Features**: Unlock enhanced story creation tools
 
 ### Technical Implementation
+
+- **Dedicated Schema**: The token economy uses a dedicated `token_economy` schema within the main Supabase instance, providing separation of concerns while simplifying infrastructure
+- **User Tokens**: Each user has a `tokens` property that maintains their current token balance
+- **Transaction Tracking**: All token transactions are recorded with detailed metadata
+- **Row-Level Security**: Strict RLS policies ensure users can only view and modify their own token data
+- **Premium Content Verification**: Implemented token verification for premium content unlocks
+
+### Admin Features
+
+- **Token Management**: Administrators can view and modify user token balances
+- **Transaction Overview**: View all token transactions across the platform
+- **Security**: Admin features require:
+  1. User has `is_admin=true` in the users table
+  2. Service role key for admin operations
+  3. RLS policies enforcing admin permission checks
+
+## Recent Updates (March 2025)
+
+### Token Economy Enhancements
+
+1. **Consolidated Architecture**: The SottoTokenized feature now uses a dedicated schema within the main Supabase instance instead of a separate instance
+2. **Improved Premium Content**: Enhanced the premium content unlock experience with better UI and user feedback
+3. **Schema Migration**: All token economy tables now use the `token_economy` schema prefix
+4. **Fixed TypeScript Errors**: Updated property names to ensure type consistency:
+   - Changed `tokenBalance` references to `tokens` throughout the codebase
+   - Added proper null handling for optional token properties
+5. **Transaction Tracking**: Improved tracking for both token spenders and content creators
+6. **Admin Interface Updates**: Enhanced token management in the admin dashboard
+
+### Development Improvements
+
+1. **Mock Data**: Added comprehensive mock data for development and testing purposes
+2. **Import Structure**: Fixed module import paths to ensure proper TypeScript validation
+3. **Documentation**: Updated documentation with the latest architecture details
 
 - Uses the main Supabase instance with a dedicated schema for SottoTokenized
 - Implements real-time balance updates using Supabase's realtime features

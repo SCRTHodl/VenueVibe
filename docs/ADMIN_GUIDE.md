@@ -83,6 +83,64 @@ interface AIInstruction {
 - Set up knowledge bases
 - Monitor AI performance
 
+### Agent Memory System
+```typescript
+interface AgentMemory {
+  id?: string;
+  userId: string;
+  contextType: MemoryContextType;
+  content: {
+    text: string;
+    metadata?: Record<string, any>;
+    source?: string;
+  };
+  importance: number; // 1-10, 10 being most important
+  vectorEmbedding?: number[];
+  createdAt?: string;
+  updatedAt?: string;
+  expiresAt?: string;
+}
+
+interface AgentBehavior {
+  id?: string;
+  name: string;
+  description?: string;
+  inviteCodeId?: string;
+  behaviorConfig: {
+    systemPrompt: string;
+    primaryGoal?: string;
+    personality?: string;
+    responseStyle?: string;
+    priorityTopics?: string[];
+    avoidanceTopics?: string[];
+  };
+  toolsAllowed?: string[];
+  memoryConfig?: {
+    retentionPeriod?: number;
+    maxMemories?: number;
+    prioritizeCategories?: MemoryContextType[];
+  };
+}
+```
+
+#### Memory Management
+- View and manage user memories
+- Set importance levels and expiration dates
+- Create global memories shared across users
+- Monitor memory usage statistics
+
+#### Tool Management
+- Register new tools with permissions
+- Configure token costs and rate limits
+- Monitor tool usage analytics
+- Enable/disable tools for specific user groups
+
+#### Behavior Configuration
+- Create agent personalities and behaviors
+- Link behaviors to invite codes
+- Configure system prompts and response styles
+- Control memory retention and tool access
+
 ## Database Management
 
 ### Key Tables
@@ -118,6 +176,60 @@ CREATE TABLE ai_instructions (
   knowledge_base jsonb,
   created_at timestamptz DEFAULT now()
 );
+
+#### Agent Memory System
+```sql
+CREATE SCHEMA agent_system;
+
+CREATE TABLE agent_system.agent_memories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users NOT NULL,
+  context_type text NOT NULL,
+  content jsonb NOT NULL,
+  importance int NOT NULL,
+  vector_embedding vector(1536),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  expires_at timestamptz
+);
+
+CREATE TABLE agent_system.agent_tools (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text UNIQUE NOT NULL,
+  description text NOT NULL,
+  tool_type text NOT NULL,
+  permissions jsonb NOT NULL,
+  token_cost int NOT NULL,
+  rate_limit jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE agent_system.tool_usage_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users NOT NULL,
+  tool_id uuid REFERENCES agent_system.agent_tools NOT NULL,
+  tokens_spent int NOT NULL,
+  success boolean NOT NULL,
+  error_message text,
+  request_data jsonb,
+  result_summary text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE agent_system.agent_behaviors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  invite_code_id uuid REFERENCES invite_codes(id),
+  behavior_config jsonb NOT NULL,
+  tools_allowed text[],
+  memory_config jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  created_by uuid REFERENCES auth.users
+);
+```
 ```
 
 ### Backup & Recovery

@@ -9,7 +9,9 @@ export const TOKEN_ECONOMY = {
     PROMOTE_STORY: 5, // Base cost for story promotion
     BOOST_POST: 10,   // Base cost for post boost
     PREMIUM_CONTENT: 15, // Cost to access premium content
-    SPECIAL_FEATURES: 20 // Cost for special features
+    SPECIAL_FEATURES: 20, // Cost for special features
+    MIN_PREMIUM: 5,  // Minimum cost for premium content
+    MAX_PREMIUM: 100 // Maximum cost for premium content
   },
   
   // Token rewards for different actions
@@ -89,7 +91,7 @@ export const useTokenStore = create<TokenState>()(
           
           if (session?.user) {
             const { data, error } = await supabase
-              .from('user_wallets')
+              .from('token_economy.user_wallets')
               .select('*')
               .eq('user_id', session.user.id)
               .single();
@@ -148,7 +150,7 @@ export const useTokenStore = create<TokenState>()(
             transaction.userId = session.user.id;
             
             const { error: txError } = await supabase
-              .from('token_transactions')
+              .from('token_economy.token_transactions')
               .insert([{
                 user_id: session.user.id,
                 type: 'earn',
@@ -200,7 +202,7 @@ export const useTokenStore = create<TokenState>()(
             transaction.userId = session.user.id;
             
             const { error: txError } = await supabase
-              .from('token_transactions')
+              .from('token_economy.token_transactions')
               .insert([{
                 user_id: session.user.id,
                 type: 'spend',
@@ -254,7 +256,7 @@ export const useTokenStore = create<TokenState>()(
             transaction.userId = session.user.id;
             
             const { error: txError } = await supabase
-              .from('token_transactions')
+              .from('token_economy.token_transactions')
               .insert([{
                 user_id: session.user.id,
                 type: 'purchase',
@@ -291,7 +293,7 @@ export const useTokenStore = create<TokenState>()(
         
         try {
           const { data, error } = await supabase
-            .from('token_transactions')
+            .from('token_economy.token_transactions')
             .select('*')
             .eq('user_id', session.user.id)
             .order('created_at', { ascending: false })
@@ -328,7 +330,7 @@ export const useTokenStore = create<TokenState>()(
           set({ isLoading: true });
           
           const { data, error } = await supabase
-            .from('user_wallets')
+            .from('token_economy.user_wallets')
             .select('*')
             .eq('user_id', session.user.id)
             .single();
@@ -348,7 +350,7 @@ export const useTokenStore = create<TokenState>()(
             await get().getTransactionHistory();
           } else {
             const { error: createError } = await supabase
-              .from('user_wallets')
+              .from('token_economy.user_wallets')
               .insert([{
                 user_id: session.user.id,
                 balance: get().balance,

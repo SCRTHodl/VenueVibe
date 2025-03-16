@@ -44,6 +44,48 @@ const getTimeOfDayGreeting = (): string => {
 };
 
 /**
+ * Generates a tailwind CSS class based on venue category
+ */
+export const getCategoryColor = (category?: string): string => {
+  if (!category) return 'bg-gray-300 text-gray-700';
+  
+  const lowercased = category.toLowerCase();
+  
+  if (lowercased.includes('restaurant') || lowercased.includes('food') || lowercased.includes('cafe')) {
+    return 'bg-orange-100 text-orange-800';
+  } else if (lowercased.includes('bar') || lowercased.includes('pub') || lowercased.includes('lounge')) {
+    return 'bg-purple-100 text-purple-800';
+  } else if (lowercased.includes('shopping') || lowercased.includes('store') || lowercased.includes('market')) {
+    return 'bg-blue-100 text-blue-800';
+  } else if (lowercased.includes('hotel') || lowercased.includes('lodging') || lowercased.includes('inn')) {
+    return 'bg-yellow-100 text-yellow-800';
+  } else if (lowercased.includes('gym') || lowercased.includes('fitness') || lowercased.includes('sport')) {
+    return 'bg-green-100 text-green-800';
+  } else if (lowercased.includes('theater') || lowercased.includes('cinema') || lowercased.includes('entertainment')) {
+    return 'bg-red-100 text-red-800';
+  } else if (lowercased.includes('park') || lowercased.includes('nature') || lowercased.includes('garden')) {
+    return 'bg-emerald-100 text-emerald-800';
+  } else if (lowercased.includes('museum') || lowercased.includes('gallery') || lowercased.includes('art')) {
+    return 'bg-indigo-100 text-indigo-800';
+  }
+  
+  // Default fallback based on the first character of the category
+  const colors = [
+    'bg-pink-100 text-pink-800',
+    'bg-blue-100 text-blue-800',
+    'bg-green-100 text-green-800',
+    'bg-purple-100 text-purple-800',
+    'bg-yellow-100 text-yellow-800',
+    'bg-indigo-100 text-indigo-800',
+    'bg-red-100 text-red-800',
+    'bg-orange-100 text-orange-800',
+  ];
+  
+  const charCode = category.charCodeAt(0) % colors.length;
+  return colors[charCode];
+};
+
+/**
  * Generates a random color based on a string input (for user avatars)
  */
 const stringToColor = (str: string): string => {

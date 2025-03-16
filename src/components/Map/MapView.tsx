@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabase';
+import * as turf from '@turf/turf';
 import Map, { Source, Layer, Popup, Marker } from 'react-map-gl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Car } from 'lucide-react';
+import { Car, MapPin } from 'lucide-react';
 import { UserMarker } from './UserMarker';
 import { MapMarker } from './MapMarker';
 import { RydeQuestCar } from './RydeQuestCar';
 import { RydeQuestPopup } from './RydeQuestPopup';
 import { AppStats } from '../AppStats';
 import { MapPopup } from './MapPopup';
+import { LocationInsights } from './LocationInsights';
+import { getLocationBasedContent, generateLocationInsights, saveLocationExploration } from '../../lib/ai/locationContent';
 import type { ViewState, Group, GroupActivity, UserLocation, AppStats as AppStatsType, ActivityEvent } from '../../types';
 
 interface MapViewProps {
@@ -24,6 +28,7 @@ interface MapViewProps {
   appStats: AppStatsType;
   activityEvents: ActivityEvent[];
   onClose: () => void;
+  onViewVenuePosts?: (venueId: string, venueName: string) => void;
 }
 
 // Function to calculate a point approximately 5 miles away from origin
@@ -130,7 +135,8 @@ const MapView: React.FC<MapViewProps> = ({
   userHeatmapLayer,
   appStats,
   activityEvents,
-  onClose
+  onClose,
+  onViewVenuePosts
 }) => {
   const [mapReady, setMapReady] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -152,6 +158,16 @@ const MapView: React.FC<MapViewProps> = ({
     isOutbound: boolean
   }>>([]);
   const [selectedCar, setSelectedCar] = useState<any>(null);
+  
+  // Location AI insights state
+  const [showLocationInsights, setShowLocationInsights] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [locationInsights, setLocationInsights] = useState<LocationInsightsType | null>(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   
   const mapRef = useRef<any>(null);
   
@@ -189,6 +205,184 @@ const MapView: React.FC<MapViewProps> = ({
     setRoutePaths(paths);
   }, [groups]);
 
+  // Load location insights when the map center changes significantly
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    
+    const map = mapRef.current.getMap();
+    const center = map.getCenter();
+    
+    // Only load insights if user has explicitly requested them
+    if (showLocationInsights && (!currentLocation || 
+        (Math.abs(currentLocation.latitude - center.lat) > 0.05 || 
+         Math.abs(currentLocation.longitude - center.lng) > 0.05))) {
+      
+      // Get location name from reverse geocoding
+      const fetchLocationName = async () => {
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${center.lng},${center.lat}.json?access_token=${mapboxToken}`
+          );
+          const data = await response.json();
+          
+          // Extract neighborhood or locality name
+          let locationName = 'Current Area';
+          if (data.features && data.features.length > 0) {
+            const neighborhood = data.features.find((f: any) => 
+              f.place_type.includes('neighborhood') || f.place_type.includes('locality')
+            );
+            
+            if (neighborhood) {
+              locationName = neighborhood.text;
+            } else {
+              locationName = data.features[0].text;
+            }
+          }
+          
+          setCurrentLocation({
+            name: locationName,
+            latitude: center.lat,
+            longitude: center.lng
+          });
+          
+          // Fetch and analyze local content
+          await fetchLocationContent(center.lat, center.lng, locationName);
+        } catch (error) {
+          console.error('Error fetching location name:', error);
+        }
+      };
+      
+      fetchLocationName();
+    }
+  }, [mapReady, showLocationInsights, viewState.latitude, viewState.longitude]);
+  
+  // Function to fetch and analyze location content
+  const fetchLocationContent = async (latitude: number, longitude: number, locationName: string) => {
+    if (!showLocationInsights) return;
+    
+    setIsLoadingInsights(true);
+    
+    try {
+      // Get content near this location
+      const locationContent = await getLocationBasedContent(
+        latitude,
+        longitude,
+        25 // 25 mile radius
+      );
+      
+      // Generate insights from content
+      const insights = await generateLocationInsights(locationContent, locationName);
+      setLocationInsights(insights);
+      
+      // Save to agent memory if we have user ID
+      if (locationContent.length > 0) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          saveLocationExploration(
+            data.session.user.id,
+            latitude,
+            longitude,
+            locationName,
+            insights
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching location content:', error);
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+  
+  // Function to handle location search
+  const handleLocationSearch = async (query: string) => {
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}`
+      );
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const location = data.features[0];
+        const [lng, lat] = location.center;
+        
+        // Update map view
+        onMove({
+          viewState: {
+            ...viewState,
+            latitude: lat,
+            longitude: lng,
+            zoom: 12,
+            transitionDuration: 1000
+          }
+        });
+        
+        // Update current location
+        setCurrentLocation({
+          name: location.text,
+          latitude: lat,
+          longitude: lng
+        });
+        
+        // Fetch content for this location
+        await fetchLocationContent(lat, lng, location.text);
+      }
+    } catch (error) {
+      console.error('Error searching location:', error);
+    }
+  };
+  
+  // Load location insights when the map center changes significantly
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !showLocationInsights) return;
+    
+    const map = mapRef.current.getMap();
+    const center = map.getCenter();
+    
+    // Only load insights if user has explicitly requested them
+    if (!currentLocation || 
+        (Math.abs(currentLocation.latitude - center.lat) > 0.05 || 
+         Math.abs(currentLocation.longitude - center.lng) > 0.05)) {
+      
+      // Get location name from reverse geocoding
+      const fetchLocationName = async () => {
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${center.lng},${center.lat}.json?access_token=${mapboxToken}`
+          );
+          const data = await response.json();
+          
+          // Extract neighborhood or locality name
+          let locationName = 'Current Area';
+          if (data.features && data.features.length > 0) {
+            const neighborhood = data.features.find((f: any) => 
+              f.place_type.includes('neighborhood') || f.place_type.includes('locality')
+            );
+            
+            if (neighborhood) {
+              locationName = neighborhood.text;
+            } else {
+              locationName = data.features[0].text;
+            }
+          }
+          
+          setCurrentLocation({
+            name: locationName,
+            latitude: center.lat,
+            longitude: center.lng
+          });
+          
+          // Fetch and analyze local content
+          await fetchLocationContent(center.lat, center.lng, locationName);
+        } catch (error) {
+          console.error('Error fetching location name:', error);
+        }
+      };
+      
+      fetchLocationName();
+    }
+  }, [mapReady, showLocationInsights, viewState.latitude, viewState.longitude]);
+  
   // Generate and animate RydeQuest drivers along routes
   useEffect(() => {
     if (routePaths.length === 0) return;
@@ -318,6 +512,17 @@ const MapView: React.FC<MapViewProps> = ({
     setPopupInfo(group);
   };
   
+  // Handle viewing venue posts and chat
+  const handleViewVenuePosts = (group: Group) => {
+    // Close the popup
+    handlePopupClose();
+    
+    // Call the parent handler if provided
+    if (onViewVenuePosts) {
+      onViewVenuePosts(group.id, group.name);
+    }
+  };
+  
   // Handle popup close
   const handlePopupClose = () => {
     setPopupInfo(null);
@@ -435,6 +640,7 @@ const MapView: React.FC<MapViewProps> = ({
             isSelected={selectedGroup?.id === group.id}
             onSelect={handleMarkerClick}
             scale={getMarkerScale()}
+            onViewPosts={onViewVenuePosts ? (group) => onViewVenuePosts(group.id, group.name) : undefined}
           />
         ))}
         
@@ -458,7 +664,8 @@ const MapView: React.FC<MapViewProps> = ({
               onDetails={() => {
                 onGroupSelect(popupInfo);
                 handlePopupClose();
-              }} 
+              }}
+              onViewPosts={() => handleViewVenuePosts(popupInfo)}
             />
           </Popup>
         )}
@@ -502,6 +709,59 @@ const MapView: React.FC<MapViewProps> = ({
           ))}
         </div>
       </div>
+      
+      {/* Map controls */}
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
+        <button
+          className={`p-2 rounded-full shadow ${showLocationInsights ? 'bg-[--color-accent-primary]' : 'bg-gray-700'}`}
+          onClick={() => {
+            setShowLocationInsights(!showLocationInsights);
+            if (!showLocationInsights && mapRef.current) {
+              const map = mapRef.current.getMap();
+              const center = map.getCenter();
+              setCurrentLocation({
+                name: 'Current Area',
+                latitude: center.lat,
+                longitude: center.lng
+              });
+              fetchLocationContent(center.lat, center.lng, 'Current Area');
+            }
+          }}
+          title="Toggle location insights"
+        >
+          <MapPin size={24} className="text-white" />
+        </button>
+        
+        <button
+          className={`p-2 rounded-full shadow ${showHeatmap ? 'bg-[--color-accent-primary]' : 'bg-gray-700'}`}
+          onClick={() => setShowHeatmap(!showHeatmap)}
+          title="Toggle heatmap"
+        >
+          <Car size={24} className="text-white" />
+        </button>
+        
+        {categories.map(category => (
+          <button
+            key={category.id}
+            className={`p-2 rounded-full shadow ${activeCategory === category.id ? 'bg-[--color-accent-primary]' : 'bg-gray-700'}`}
+            onClick={() => setActiveCategory(activeCategory === category.id ? null : category.id)}
+            title={category.label}
+          >
+            <span className="text-white text-sm font-bold">{category.label.charAt(0)}</span>
+          </button>
+        ))}
+      </div>
+      
+      {/* Location Insights Panel */}
+      {showLocationInsights && currentLocation && (
+        <LocationInsights
+          locationName={currentLocation.name}
+          insights={locationInsights}
+          isLoading={isLoadingInsights}
+          onClose={() => setShowLocationInsights(false)}
+          onSearchLocation={handleLocationSearch}
+        />
+      )}
       
       {/* App Stats display (bottom right) */}
       <AppStats stats={appStats} />

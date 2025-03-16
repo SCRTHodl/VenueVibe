@@ -22,7 +22,7 @@ export const TokenTransactionHistory: React.FC<TokenTransactionHistoryProps> = (
       try {
         // Fetch transactions where the user is either sender or recipient
         const { data, error } = await tokenEconomySupabase
-          .from('token_transactions')
+          .from('token_economy.token_transactions')
           .select('*')
           .or(`user_id.eq.${userId},recipient_id.eq.${userId}`)
           .order('created_at', { ascending: false })

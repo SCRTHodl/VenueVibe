@@ -1,15 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MapPin, Clock, Star, Users, DollarSign, TrendingUp, TrendingDown, ChevronLeft, MessageSquare } from 'lucide-react';
 import { ChatPanel } from '../Chat/ChatPanel';
-import type { Group } from '../../types';
+import { TEST_GROUPS } from '../../constants';
+import type { Group, Post } from '../../types';
 
 interface GroupDetailProps {
   group: Group;
   onBack: () => void;
+  allGroups?: Group[];
+  autoOpenChat?: boolean; // Open chat automatically
+  venuePosts?: Post[]; // Posts tagged with this venue
+  onClickOutside?: () => void; // Handler for clicking outside
+  onPostComment?: (postId: string, comment: string) => Promise<any>; // Handler for posting comments
+  onCreatePost?: (content: string, venueId: string) => Promise<any>; // Handler for creating new posts
 }
 
-export const GroupDetail: React.FC<GroupDetailProps> = ({ group, onBack }) => {
-  const [showChat, setShowChat] = useState(false);
+export const GroupDetail: React.FC<GroupDetailProps> = ({ 
+  group, 
+  onBack, 
+  allGroups = TEST_GROUPS, 
+  autoOpenChat = false, 
+  venuePosts = [],
+  onClickOutside,
+  onPostComment,
+  onCreatePost
+}) => {
+  const [showChat, setShowChat] = useState(autoOpenChat);
+  const detailRef = useRef<HTMLDivElement>(null);
+  
+  // Handle click outside to dismiss the detail panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (detailRef.current && !detailRef.current.contains(event.target as Node)) {
+        onClickOutside && onClickOutside();
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClickOutside]);
   
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -54,11 +85,20 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ group, onBack }) => {
   };
   
   if (showChat) {
-    return <ChatPanel group={group} onClose={() => setShowChat(false)} />;
+    return (
+      <ChatPanel 
+        group={group} 
+        onClose={() => setShowChat(false)} 
+        allGroups={allGroups} 
+        venuePosts={venuePosts}
+        onPostComment={onPostComment}
+        onCreatePost={onCreatePost}
+      />
+    );
   }
   
   return (
-    <div className="flex flex-col h-full bg-[#121826] overflow-hidden">
+    <div ref={detailRef} className="flex flex-col h-full bg-[#121826] overflow-hidden rounded-lg shadow-xl border border-gray-700">
       {/* Header */}
       <div className="bg-[#1a2234] border-b border-gray-700 p-4 shadow-md">
         <div className="flex items-center gap-3">
@@ -161,14 +201,17 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ group, onBack }) => {
         </div>
       </div>
       
-      {/* Chat button */}
+      {/* Venue Posts button */}
       <div className="border-t border-gray-700 p-4">
         <button
-          onClick={() => setShowChat(true)}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent event bubbling
+            setShowChat(true);
+          }}
           className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
         >
           <MessageSquare size={20} />
-          Join Group Chat
+          View Posts & Comments
         </button>
       </div>
     </div>
