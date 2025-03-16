@@ -49,6 +49,8 @@ import { EventBanner } from './components/EventTheme/EventBanner';
 import { EventModal } from './components/EventTheme/EventModal';
 import { InviteCodeEntry } from './components/InviteCode/InviteCodeEntry';
 import { ThemeCustomizer } from './components/ThemeCustomizer/ThemeCustomizer';
+// Only import debug components in development mode
+import { EmailVerificationDebug } from './components/Debug/EmailVerificationDebug';
 import { LocalContentFeed } from './components/Trending/LocalContentFeed';
 import { StoryModal } from './components/Stories/StoryModal';
 import { VoiceAssistant } from './components/VoiceAssistant';
@@ -131,7 +133,19 @@ function App() {
   const { initializeWallet } = useTokenStore();
   
   useEffect(() => {
+    // Initialize wallet
     initializeWallet();
+    
+    // Handle email verification from URL if present
+    import('./lib/auth/handleEmailVerification').then(({ handleEmailVerification }) => {
+      handleEmailVerification().then(result => {
+        if (result.success) {
+          toast.success(result.message);
+        } else if (result.message !== 'No verification link detected') {
+          toast.error(result.message);
+        }
+      });
+    });
   }, [initializeWallet]);
   
   // Check if Mapbox token is configured
@@ -799,6 +813,9 @@ function App() {
           <TokenStore onClose={() => setShowTokenStore(false)} />
         </div>
       )}
+      
+      {/* Debug tool for email verification - only visible in development */}
+      {import.meta.env.DEV && <EmailVerificationDebug />}
     </div>
   );
 }

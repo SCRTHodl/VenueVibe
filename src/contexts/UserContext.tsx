@@ -222,17 +222,45 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
+      // Check if Supabase URL and key are properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration is missing. Please check your environment variables.');
+      }
+      
+      console.log('Initiating signup with:', { email, name, redirectTo: window.location.origin });
+      
       // Sign up with Supabase Auth
+      // Updated to use the root URL as the redirect to properly handle email verification
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin, // Use root URL for proper hash fragment handling
           data: {
             name: name,
           }
         }
       });
+      
+      console.log('Signup response:', { data, error, confirmationSent: data?.user?.identities?.[0]?.identity_data });
+      
+      // If there's no error but email confirmation was needed
+      if (data?.user && !error) {
+        console.log('User created:', data.user.id);
+        console.log('Email confirmation status:', data.user.email_confirmed_at ? 'Confirmed' : 'Not confirmed');
+        console.log('Check Supabase dashboard for confirmation emails in development');
+        
+        // Show toast with more specific information
+        if (!data.user.email_confirmed_at) {
+          toast.success(
+            'Account created! Please check your email for verification link. ' +
+            'Note: In development, emails may be viewable in Supabase dashboard instead.'
+          );
+        }
+      }
       
       if (error) throw error;
       
@@ -253,19 +281,52 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) throw profileError;
         
         // Initialize token balance using admin client for token_economy schema
-        const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
-        const adminClient = getAdminClient();
-        const { error: tokenError } = await adminClient
-          .schema(tokenEconomySchema)
-          .from('tokens')
-          .insert([
-            {
-              user_id: data.user.id,
-              balance: 50, // Starting balance
-            }
-          ]);
-        
-        if (tokenError) throw tokenError;
+        try {
+          console.log('Initializing token balance for new user:', data.user.id);
+          const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+          
+          // Important: For accessing token_economy schema, we need the service role client
+          // As per user memory: "The correct approach for accessing the token_economy schema in Supabase
+          // is to use a service role client with appropriate permissions."
+          console.log('Getting admin client for token economy access');
+          const adminClient = getAdminClient();
+          
+          if (!adminClient) {
+            console.error('Admin client not available - check VITE_SUPABASE_SERVICE_ROLE_KEY in env');
+            throw new Error('Cannot initialize token balance: Admin client not available');
+          }
+          
+          // As per user memory: "For querying tables in the token_economy schema in Supabase, 
+          // we need to use the .schema('token_economy') method before calling .from()"
+          console.log(`Using schema('${tokenEconomySchema}') before from() for token economy operations`);
+          
+          // Properly access token_economy schema using .schema() method before .from()
+          const { data: tokenData, error: tokenError } = await adminClient
+            .schema(tokenEconomySchema)
+            .from('user_token_balances') // Using the actual table name from tokenEconomy.ts
+            .insert([
+              {
+                user_id: data.user.id,
+                balance: 50, // Starting balance
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }
+            ])
+            .select();
+            
+          console.log('Token initialization response:', { data: tokenData, error: tokenError });
+          
+          if (tokenError) {
+            console.error('Error initializing token balance:', tokenError);
+            throw tokenError;
+          }
+          
+          console.log('Token balance initialized successfully:', tokenData);
+        } catch (tokenInitError) {
+          console.error('Failed to initialize token balance:', tokenInitError);
+          // Don't block signup completion if token initialization fails
+          toast.error('Account created, but initial token balance could not be set.');
+        }
         
         // Create user object
         const newUser: User = {
