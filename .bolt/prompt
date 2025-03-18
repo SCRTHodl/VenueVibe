@@ -6,4 +6,4 @@ Use icons from lucide-react for logos.
 
 Use stock photos from unsplash where appropriate, only valid URLs you know exist. Do not download the images, only link to them in image tags.
 
-I want users to be able to tell AI assistant Jessica instructions on how to access user saved data, contacts and do filtering for special interests or to send signals and invites etc.  The app should try to build around AI features and cool functionality but let's review any major structural changes before making them and don't ever delete functionality without permission.
+I want users to be able to tell AI assistant Jessica instructions on how to access user saved data, group comments and do filtering for special interests or to send signals and invites etc.  The app should try to build around AI features and cool functionality but let's review any major structural changes before making them and don't ever delete functionality without permission.
