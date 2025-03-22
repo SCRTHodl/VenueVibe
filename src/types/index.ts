@@ -79,6 +79,7 @@ export interface Group {
   rating: number;
   priceRange: string;
   photos: string[];
+  isPromoting?: boolean;
   popularTimes?: {
     now: string;
     trend: 'up' | 'down' | 'stable';
@@ -86,7 +87,6 @@ export interface Group {
   };
   inviteCode?: string;
   eventTheme?: EventTheme;
-  isPromoting?: boolean;
 }
 
 export interface Channel {

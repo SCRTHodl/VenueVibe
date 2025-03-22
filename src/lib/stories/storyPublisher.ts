@@ -1,8 +1,7 @@
 import { supabase } from '../supabase';
 import { getAdminClient } from '../../utils/supabaseClient';
-import { UserStory, ModerationResult } from '../../types';
+import { UserStory } from '../../types/index';
 import { TOKEN_ECONOMY } from '../tokenStore';
-import { isContentTypeSupported, SupportedContentType } from '../ai/index';
 
 /**
  * Handle premium content configuration when publishing a story
@@ -87,7 +86,7 @@ export const createStoryObject = (params: {
     music: music || undefined,
     stickers: [
       ...(stickers || []),
-      ...emojis.map((emoji, index) => ({
+      ...emojis.map((emoji) => ({
         id: crypto.randomUUID(),
         emoji,
         x: Math.random() * 80 + 10,

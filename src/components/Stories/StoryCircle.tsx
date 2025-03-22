@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Group } from '../../types';
+import { Group } from '../../types/index';
 import { StoryView } from './StoryView';
 
 interface StoryCircleProps {

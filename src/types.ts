@@ -111,6 +111,8 @@ export interface Message {
 export interface Channel {
   id: string;
   name: string;
+  icon?: string; // Icon for the channel display
+  description?: string; // Description for the channel
 }
 
 export type ActivityEvent = {
@@ -185,15 +187,8 @@ export interface EventTheme {
   logoUrl?: string;
 }
 
-export interface UserStory {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  media: string;
-  timestamp: string;
-  viewed: boolean;
-}
+// UserStory interface has been moved to types/index.ts
+// Use import { UserStory } from './types/index'; instead
 
 export interface PromotionBox {
   title: string;
@@ -235,4 +230,52 @@ export interface InviteCode {
   uses: number;
   is_active: boolean;
   themeId?: string; // Associated theme ID for this invite code
+}
+
+export interface TrendingTopic {
+  id: string;
+  title: string; // Title of the trending topic
+  name?: string; // Optional name property (for backward compatibility)
+  count?: number; // Number of mentions
+  mentions?: number; // Alternative to count
+  description?: string; // Description of the trending topic
+  trend?: 'up' | 'down' | 'stable'; // Trend direction
+  percentChange?: number; // Percentage change 
+  category?: string; // Category of the topic
+  isRising?: boolean; // Whether the topic is rising
+  tags?: string[]; // Tags related to the topic
+  image?: string; // Image URL
+}
+
+export interface LocalEvent {
+  id: string;
+  title: string; // Title of the event
+  name?: string; // Optional name property (for backward compatibility)
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  attendees?: number;
+  category?: string;
+  tags?: string[];
+  image?: string; // Image URL
+  imageUrl?: string; // Alternative property for image URL
+  url?: string;
+  isFeatured?: boolean;
+}
+
+export interface AIRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  type: 'venue' | 'event' | 'group';
+  score: number;
+  imageUrl?: string;
+  targetId?: string;
+  items?: any[]; // Items associated with the recommendation
+  generatedAt?: string; // When the recommendation was generated
+  matchScore?: number; // Score of the match
+  userInterests?: string[]; // User interests used for the recommendation
 }
