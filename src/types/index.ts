@@ -86,6 +86,7 @@ export interface Group {
   };
   inviteCode?: string;
   eventTheme?: EventTheme;
+  isPromoting?: boolean;
 }
 
 export interface Channel {

@@ -606,7 +606,8 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[--color-bg-primary] relative overflow-hidden noise-texture">
+    <div className="flex flex-col h-screen w-full bg-[--color-bg-primary] relative overflow-hidden noise-texture" style={{minHeight: '-webkit-fill-available', maxWidth: '100vw', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)'}}>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
       {/* Voice Assistant */}
       <VoiceAssistant />
 
@@ -617,11 +618,11 @@ function App() {
 
       {/* App Header */}
       <header 
-        className="sticky top-0 z-40 p-4 shadow-lg transition-all duration-300 glass-morphism"
+        className="sticky top-0 z-40 p-3 md:p-4 shadow-lg transition-all duration-300 glass-morphism"
         style={getHeaderStyle()}
       >
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="flex items-center justify-between w-full max-w-screen-2xl mx-auto">
+          <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-1 md:gap-2">
             {activeEventTheme && (
               <Sparkles 
                 size={0} 
@@ -629,13 +630,13 @@ function App() {
                 style={{ color: activeEventTheme.accentColor }} 
               />
             )}
-            <Map size={22} className="text-[--color-accent-primary]" />
+            <Map size={20} className="text-[--color-accent-primary]" />
             <span className="font-['Clash_Display'] tracking-tight">
               {activeEventTheme ? activeEventTheme.name : 'SottoCity'}
             </span>
           </h1>
           
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-2 md:gap-3 items-center">
             {filteredByInviteCode && (
               <button 
                 onClick={resetFilters}
@@ -666,7 +667,7 @@ function App() {
             {(activeTab === 'home' || activeTab === 'explore') && !showGroupDetail && (
               <button 
                 onClick={toggleMapView}
-                className="bg-gradient-to-r from-[--color-accent-primary] to-[--color-accent-secondary] hover:opacity-90 px-3 py-1.5 rounded-lg text-white text-sm font-medium flex items-center gap-1.5 transition-all shadow-lg"
+                className="bg-gradient-to-r from-[--color-accent-primary] to-[--color-accent-secondary] hover:opacity-90 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-white text-xs md:text-sm font-medium flex items-center gap-1 md:gap-1.5 transition-all shadow-lg"
               >
                 <Map size={16} />
                 {isMapVisible ? 'Hide Map' : 'Map'}
@@ -689,7 +690,7 @@ function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      <main className="flex-1 flex flex-col overflow-hidden relative w-full max-w-screen-2xl mx-auto">
         {renderTabContent()}
         
         {/* Map Overlay */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, MessageSquare, Bookmark, Share2, MapPin, Clock, MoreHorizontal, Send, Award, Coins } from 'lucide-react';
-import { formatTimeAgo, getCategoryColor } from '../../lib/utils';
+import { formatTimeAgo } from '../../lib/utils';
 import { useTokenStore, TOKEN_ECONOMY } from '../../lib/tokenStore';
 import type { Post as PostType, Comment } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -170,9 +170,9 @@ export const Post: React.FC<PostProps> = ({ post }) => {
   };
   
   return (
-    <div className="bg-[#121826] rounded-xl shadow-lg border border-blue-900/20 overflow-hidden mb-4">
+    <div className="bg-[#121826] rounded-xl shadow-lg border border-blue-900/20 overflow-hidden mb-4 w-full max-w-screen-md mx-auto">
       {/* Header */}
-      <div className="p-4 flex items-center justify-between border-b border-blue-900/10">
+      <div className="p-3 md:p-4 flex items-center justify-between border-b border-blue-900/10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-md">
             {post.userAvatar}
@@ -197,7 +197,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-3 md:p-4">
         <p className="text-white whitespace-pre-wrap mb-3">{post.content || post.text}</p>
         
         {/* Tags */}
@@ -271,8 +271,8 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       )}
 
       {/* Actions */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="px-3 md:px-4 py-2 md:py-3 flex items-center justify-between flex-wrap">
+        <div className="flex items-center gap-3 md:gap-6">
           <motion.button 
             className={`flex items-center gap-2 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
             onClick={handleLike}
@@ -322,7 +322,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
       {/* Comments Section */}
       {showComments && (
         <div className="border-t border-blue-900/10">
-          <div className="p-4 space-y-4">
+          <div className="p-3 md:p-4 space-y-3 md:space-y-4">
             <h4 className="font-medium text-white">Comments</h4>
             
             {isCommentLoading ? (
@@ -332,7 +332,7 @@ export const Post: React.FC<PostProps> = ({ post }) => {
             ) : (
               <>
                 {/* Comment form */}
-                <form onSubmit={handleSubmitComment} className="flex gap-2">
+                <form onSubmit={handleSubmitComment} className="flex gap-2 w-full">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                     Y
                   </div>
