@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserStory } from '../../types/index';
+import { UserStory } from '../../types';
 import { UserStoryView } from './UserStoryView';
 
 interface UserStoryCircleProps {

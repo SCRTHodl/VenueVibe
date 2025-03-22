@@ -46,12 +46,14 @@ supabase functions deploy token-economy
 
 ### 3. Set Edge Function Secrets
 
-Set the necessary secrets for your edge function:
+Set the necessary secrets for your edge function using the VITE-prefixed variables:
 
 ```bash
-supabase secrets set SUPABASE_URL=https://jvmfmgkpkkoqmhzrbzyz.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+supabase secrets set VITE_SUPABASE_URL=https://jvmfmgkpkkoqmhzrbzyz.supabase.co
+supabase secrets set VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
+
+**Note:** We're using the VITE-prefixed variables because the non-prefixed versions were rejected by Supabase. The edge function has been updated to look for these variables.
 
 ### 4. Update Your Supabase Dashboard Configuration
 

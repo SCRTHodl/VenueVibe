@@ -79,7 +79,6 @@ export interface Group {
   rating: number;
   priceRange: string;
   photos: string[];
-  isPromoting?: boolean;
   popularTimes?: {
     now: string;
     trend: 'up' | 'down' | 'stable';

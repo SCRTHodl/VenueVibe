@@ -1,5 +1,4 @@
-import type { Group } from '../types/index';
-import type { Channel, Post, EventTheme, TrendingTopic, LocalEvent, AIRecommendation } from '../types';
+import type { Channel, Group, Post, EventTheme, TrendingTopic, LocalEvent, AIRecommendation } from '../types';
 
 // Event themes for special occasions
 export const EVENT_THEMES: EventTheme[] = [
@@ -167,7 +166,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Just had the most amazing margherita pizza at Cibo! The crust is perfectly thin and crispy. Definitely coming back next weekend! 🍕😍",
     photos: [TEST_GROUPS[0].photos[0]],
     likes: 37,
-    comments: [], // Previously 8 comments, converted to empty array for type compatibility
+    comments: 8,
     isLiked: false,
     isSaved: true,
     tags: ['pizza', 'italianfood', 'datenight']
@@ -182,7 +181,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Happy hour at The Churchill is 🔥! $5 craft beers and half-price appetizers. Got here just in time to snag the last outdoor table. Perfect weather tonight!",
     photos: [TEST_GROUPS[1].photos[1]],
     likes: 42,
-    comments: [], // Previously 14 comments
+    comments: 14,
     isLiked: true,
     isSaved: false,
     tags: ['happyhour', 'craftbeer', 'patiosituation']
@@ -197,7 +196,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Culinary Dropout's pretzel fondue with provolone cheese sauce is literally what dreams are made of. Also their cocktail game is next level. Try the Desert Sunset if you go!",
     photos: [TEST_GROUPS[2].photos[0]],
     likes: 89,
-    comments: [], // Previously 23 comments
+    comments: 23,
     isLiked: false,
     isSaved: false,
     tags: ['foodie', 'cocktails', 'gastropub']
@@ -212,7 +211,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Wine Wednesday at Cibo is such a steal! $5 glasses until 5pm and their bruschetta boards are perfect for sharing. Got the burrata and the sweet potato versions - both incredible!",
     photos: ['https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=800&h=600&fit=crop'],
     likes: 56,
-    comments: [], // Previously 11 comments
+    comments: 11,
     isLiked: true,
     isSaved: true,
     tags: ['winewednesday', 'happyhour', 'datespot']
@@ -227,7 +226,7 @@ export const MOCK_POSTS: Post[] = [
     content: "The Churchill's new seasonal cocktail menu is a must-try! The bartenders are so creative and they use all local ingredients. My favorite is the Sonoran Sunset with prickly pear and mezcal. 🍸✨",
     photos: ['https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&h=600&fit=crop'],
     likes: 112,
-    comments: [], // Previously 29 comments
+    comments: 29,
     isLiked: false,
     isSaved: true,
     tags: ['cocktails', 'local', 'nightlife', 'datenight']
@@ -242,7 +241,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Sunday Funday at Postino! $5 mimosas and the best bruschetta board in town. The fig & ricotta combo is heavenly! 🥂✨",
     photos: ['https://images.unsplash.com/photo-1600335895229-6e75511892c8?w=800&h=600&fit=crop'],
     likes: 73,
-    comments: [], // Previously 16 comments
+    comments: 16,
     isLiked: false,
     isSaved: false,
     tags: ['sundayfunday', 'brunch', 'mimosas', 'winebar']
@@ -257,7 +256,7 @@ export const MOCK_POSTS: Post[] = [
     content: "These fish tacos at La Barquita are INSANE! So fresh and that chipotle crema 🤤 Plus, their house margaritas are 2-for-1 until 6pm! 🌮🌶️",
     photos: ['https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=800&h=600&fit=crop'],
     likes: 95,
-    comments: [], // Previously 21 comments
+    comments: 21,
     isLiked: true,
     isSaved: false,
     tags: ['tacos', 'mexicanfood', 'happyhour', 'margaritas']
@@ -272,7 +271,7 @@ export const MOCK_POSTS: Post[] = [
     content: "Live music night at Culinary Dropout! The band is killing it and these craft cocktails are perfect. Get the smoked old fashioned - it's a show! 🎸🥃",
     photos: ['https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&h=600&fit=crop'],
     likes: 128,
-    comments: [], // Previously 32 comments
+    comments: 32,
     isLiked: false,
     isSaved: true,
     tags: ['livemusic', 'nightlife', 'cocktails', 'datenight']
@@ -287,7 +286,7 @@ export const MOCK_POSTS: Post[] = [
     content: "The Churchill's rooftop movie night is such a vibe! Watching Casablanca under the stars with these amazing city views. Plus the popcorn is truffle-seasoned! 🎬🌟",
     photos: ['https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=600&fit=crop'],
     likes: 156,
-    comments: [], // Previously 27 comments
+    comments: 27,
     isLiked: true,
     isSaved: true,
     tags: ['movienight', 'rooftop', 'datenight', 'views']
@@ -302,7 +301,7 @@ export const MOCK_POSTS: Post[] = [
     content: "$25 bottle of wine + board of bruschetta deal at Postino's is unbeatable! Perfect spot for a casual date night or catch-up with friends. The prosciutto & fig bruschetta is a must-try! 🍷",
     photos: ['https://images.unsplash.com/photo-1515779122185-2390ccdf060b?w=800&h=600&fit=crop'],
     likes: 92,
-    comments: [], // Previously 19 comments
+    comments: 19,
     isLiked: false,
     isSaved: false,
     tags: ['winewednesday', 'datenight', 'bruschetta', 'winedeals']
@@ -401,8 +400,6 @@ export const AI_RECOMMENDATIONS: AIRecommendation[] = [
     id: 'ai-rec-001',
     title: 'Morning Itinerary for Coffee Lovers',
     description: 'Start your day right with this curated tour of local coffee spots based on your preferences.',
-    type: 'venue', // Required property
-    score: 95, // Required property
     items: [
       {
         name: 'Cartel Coffee Lab',

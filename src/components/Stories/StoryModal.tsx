@@ -8,9 +8,7 @@ import {
 // Used in JSX animations - ESLint may not detect usage in JSX elements
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-// Type imports are used for type checking but may appear unused to linters
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ModerationResult, UserStory } from '../../types/index';
+import type { ModerationResult, UserStory } from '../../types';
 import { STORY_FILTERS } from './Filters/filters';
 // import { StoryFilter } from './Filters/StoryFilter';
 import { StoryEnhancements } from './Controls/StoryEnhancements';
@@ -32,8 +30,6 @@ interface StoryModalProps {
 
 export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated }) => {
   // Type reference to ensure types are used by ESLint
-  // This function is deliberately unused but helps TypeScript verify types
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _typeCheck = () => {
     const _story: UserStory = {} as UserStory;
     const _modResult: ModerationResult = {} as ModerationResult;
@@ -717,13 +713,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
       />
       
       {/* Main container */}
-      <div className="w-full h-full md:w-[480px] md:h-[85vh] bg-black relative flex flex-col" 
-           style={{
-             paddingTop: 'env(safe-area-inset-top)',
-             paddingBottom: 'env(safe-area-inset-bottom)',
-             paddingLeft: 'env(safe-area-inset-left)',
-             paddingRight: 'env(safe-area-inset-right)'
-           }}>
+      <div className="w-full h-full md:w-[480px] md:h-[85vh] bg-black relative flex flex-col">
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
           <div className="flex items-center gap-4">

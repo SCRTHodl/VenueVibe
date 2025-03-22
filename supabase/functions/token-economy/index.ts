@@ -2,8 +2,9 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Create a secure Supabase client with the service role key
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+// Using VITE-prefixed environment variables as they contain the same values
+const supabaseUrl = Deno.env.get('VITE_SUPABASE_URL') || ''
+const supabaseServiceKey = Deno.env.get('VITE_SUPABASE_ANON_KEY') || ''
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

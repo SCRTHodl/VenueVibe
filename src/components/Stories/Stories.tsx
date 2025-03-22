@@ -32,8 +32,8 @@ export const Stories: React.FC<StoriesProps> = ({
   }, new Map<string, UserStory>());
 
   return (
-    <div className="p-3 overflow-x-auto no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <div className="flex gap-4 pb-1">
+    <div className="p-3 overflow-x-auto">
+      <div className="flex gap-4">
         {/* Add story button */}
         <div className="flex flex-col items-center space-y-1 min-w-16">
           <button 

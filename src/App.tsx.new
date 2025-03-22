@@ -1,0 +1,268 @@
+import React, { useState, useEffect, lazy } from 'react';
+import { Suspense } from 'react';
+import { Map } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+// Custom hooks
+import { useMapState } from './hooks/useMapState';
+import { useAppData } from './hooks/useAppData';
+
+// Components
+import { Header } from './components/Layout/Header';
+import { SafeRender } from './components/ErrorBoundary/SafeRender';
+import { MobileNavBar } from './components/Navigation/MobileNavBar';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Lazy-loaded components
+const TabContent = lazy(() => import('./components/Layout/TabContent'));
+const MapViewContainer = lazy(() => import('./components/Map/MapViewContainer'));
+const ThemeCustomizer = lazy(() => import('./components/ThemeCustomizer/ThemeCustomizer'));
+const InviteCodeEntry = lazy(() => import('./components/InviteCode/InviteCodeEntry'));
+const EventThemeModal = lazy(() => import('./components/EventTheme/EventThemeModal'));
+
+// Type representing active tab
+type ActiveTabType = 'home' | 'explore' | 'search' | 'create' | 'notifications' | 'profile' | 'leaderboard' | 'store' | 'ratings';
+
+const App: React.FC = () => {
+  // App state
+  const [activeTab, setActiveTab] = useState<ActiveTabType>('home');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showGroupDetail, setShowGroupDetail] = useState(false);
+  const [showInviteCodeEntry, setShowInviteCodeEntry] = useState(false);
+  const [showThemeCustomizer, setShowThemeCustomizer] = useState(false);
+  const [activeEventTheme, setActiveEventTheme] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState('');
+  
+  // Use custom hooks
+  const mapState = useMapState();
+  const appData = useAppData();
+  
+  // Destructure for easier access
+  const { 
+    isMapVisible, 
+    setIsMapVisible, 
+    viewState, 
+    setViewState,
+    mapLoaded,
+    setMapLoaded,
+    mapError,
+    mapContainerRef,
+    userHeatmapData,
+    userHeatmapLayer
+  } = mapState;
+  
+  const {
+    user,
+    posts,
+    groups,
+    selectedGroup,
+    appStats,
+    activityEvents,
+    userTokenBalance,
+    isAdmin,
+    loading,
+    handleGroupSelect,
+    handleViewVenuePosts,
+    userPosts
+  } = appData;
+
+  // Handle tab change
+  const handleTabChange = (tab: ActiveTabType) => {
+    setActiveTab(tab);
+    if (tab !== 'home') {
+      setShowGroupDetail(false);
+    }
+  };
+  
+  // Post interaction handlers
+  const handlePostLike = (post: any) => {
+    toast.success('Post liked! +5 VIBE');
+  };
+  
+  const handlePostComment = (post: any, comment: string) => {
+    toast.success('Comment added! +2 VIBE');
+  };
+  
+  const handlePostShare = (post: any) => {
+    toast.success('Post shared! +10 VIBE');
+  };
+  
+  const handleCreatePost = () => {
+    toast('Create post coming soon');
+  };
+  
+  const handleProfileNavigate = (userId: string) => {
+    if (userId === user?.id) {
+      setActiveTab('profile');
+    } else {
+      toast('Viewing other profiles coming soon');
+    }
+  };
+  
+  // Load Mapbox token
+  useEffect(() => {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (token) {
+      setMapboxToken(token);
+    } else {
+      console.warn('Mapbox token not found in environment variables');
+    }
+  }, []);
+  
+  // Apply dark mode
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark-mode', darkMode);
+    
+    // Set CSS variables for theme colors
+    document.documentElement.style.setProperty(
+      '--color-bg-primary', 
+      darkMode ? '#121212' : '#ffffff'
+    );
+    document.documentElement.style.setProperty(
+      '--color-bg-secondary', 
+      darkMode ? '#1e1e1e' : '#f0f0f0'
+    );
+    document.documentElement.style.setProperty(
+      '--color-text-primary', 
+      darkMode ? '#ffffff' : '#000000'
+    );
+    document.documentElement.style.setProperty(
+      '--color-border', 
+      darkMode ? '#333333' : '#e0e0e0'
+    );
+    document.documentElement.style.setProperty(
+      '--color-accent-primary', 
+      '#ff3b7f'
+    );
+    document.documentElement.style.setProperty(
+      '--color-accent-secondary', 
+      '#3b82f6'
+    );
+  }, [darkMode]);
+  
+  return (
+    <ErrorBoundary>
+      <div className="flex flex-col h-screen bg-[--color-bg-primary] text-[--color-text-primary]">
+        {/* App Header */}
+        <SafeRender>
+          <Header
+            activeTab={activeTab}
+            showGroupDetail={showGroupDetail}
+            showInviteCodeEntry={showInviteCodeEntry}
+            showThemeCustomizer={showThemeCustomizer}
+            setShowInviteCodeEntry={setShowInviteCodeEntry}
+            setShowThemeCustomizer={setShowThemeCustomizer}
+            setShowGroupDetail={setShowGroupDetail}
+            activeEventTheme={activeEventTheme}
+            setShowEventModal={setShowEventModal}
+          />
+        </SafeRender>
+        
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden relative w-full max-w-screen-2xl mx-auto">
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full">
+              <div className="premium-loader"></div>
+            </div>
+          }>
+            <SafeRender>
+              <TabContent
+                activeTab={activeTab}
+                user={user}
+                posts={posts}
+                groups={groups}
+                userTokenBalance={userTokenBalance}
+                handlePostShare={handlePostShare}
+                handlePostLike={handlePostLike}
+                handlePostComment={handlePostComment}
+                handleCreatePost={handleCreatePost}
+                handleProfileNavigate={handleProfileNavigate}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                selectedGroupId={selectedGroup?.id || null}
+                userPosts={userPosts}
+              />
+            </SafeRender>
+          </Suspense>
+          
+          {/* Map Button (Fixed Position) */}
+          {!isMapVisible && (
+            <button
+              onClick={mapState.toggleMapView}
+              className="fixed right-4 bottom-20 z-20 p-4 rounded-full bg-[--color-accent-primary] text-white shadow-lg"
+              aria-label="Open Map"
+            >
+              <Map size={24} />
+            </button>
+          )}
+          
+          {/* Map Overlay */}
+          <Suspense fallback={null}>
+            <MapViewContainer
+              isMapVisible={isMapVisible}
+              mapLoaded={mapLoaded}
+              mapboxToken={mapboxToken}
+              viewState={viewState}
+              onMove={(evt) => setViewState(evt.viewState)}
+              groups={groups}
+              groupActivities={[]}
+              userLocations={[]}
+              selectedGroup={selectedGroup}
+              onGroupSelect={handleGroupSelect}
+              userHeatmapData={userHeatmapData}
+              userHeatmapLayer={userHeatmapLayer}
+              appStats={appStats}
+              activityEvents={activityEvents}
+              onClose={() => setIsMapVisible(false)}
+              onViewVenuePosts={handleViewVenuePosts}
+              mapError={mapError}
+              mapContainerRef={mapContainerRef}
+            />
+          </Suspense>
+          
+          {/* Theme Customizer */}
+          {showThemeCustomizer && (
+            <Suspense fallback={null}>
+              <ThemeCustomizer
+                onClose={() => setShowThemeCustomizer(false)}
+                darkMode={darkMode}
+                setDarkMode={setDarkMode}
+              />
+            </Suspense>
+          )}
+          
+          {/* Invite Code Entry */}
+          {showInviteCodeEntry && (
+            <Suspense fallback={null}>
+              <InviteCodeEntry
+                onClose={() => setShowInviteCodeEntry(false)}
+              />
+            </Suspense>
+          )}
+          
+          {/* Event Theme Modal */}
+          {showEventModal && activeEventTheme && (
+            <Suspense fallback={null}>
+              <EventThemeModal
+                theme={activeEventTheme}
+                onClose={() => setShowEventModal(false)}
+              />
+            </Suspense>
+          )}
+        </main>
+        
+        {/* Mobile Navigation */}
+        <SafeRender>
+          <MobileNavBar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
+        </SafeRender>
+      </div>
+    </ErrorBoundary>
+  );
+};
+
+export default App;

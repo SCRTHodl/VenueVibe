@@ -101,7 +101,7 @@ export const Feed: React.FC<FeedProps> = ({ posts, groups, onGroupSelect, onMapV
   };
   
   return (
-    <div className="p-3 space-y-4 w-full max-w-screen-md mx-auto" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+    <div className="p-3 space-y-4">
       {createMixedFeed()}
     </div>
   );

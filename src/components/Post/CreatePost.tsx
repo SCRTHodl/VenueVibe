@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { X, MapPin, Tag, Send, Image, Clock, Star, Users, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TEST_GROUPS } from '../../constants/index';
-import type { Group } from '../../types/index';
+import { TEST_GROUPS } from '../../constants';
+import type { Group } from '../../types';
 import { createPost } from '../../lib/ai';
 
 interface CreatePostProps {
@@ -22,9 +22,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onClose, onPostCreated }
   // Publishing state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  // isPublished tracks whether post was successfully published
-  // Used for conditional rendering later in component lifecycle
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isPublished, setIsPublished] = useState(false);
 
   // Handle venue selection
