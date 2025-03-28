@@ -17,12 +17,12 @@ export const useAuth = () => {
         // Check admin status
         if (session?.user) {
           const { data } = await supabase
-            .from('admin_panel.users')
-            .select('role')
+            .from('users')
+            .select('is_admin')
             .eq('id', session.user.id)
             .single();
             
-          setIsAdmin(!!data);
+          setIsAdmin(data?.is_admin === true);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -39,12 +39,12 @@ export const useAuth = () => {
       
       if (session?.user) {
         const { data } = await supabase
-          .from('admin_panel.users')
-          .select('role')
+          .from('users')
+          .select('is_admin')
           .eq('id', session.user.id)
           .single();
           
-        setIsAdmin(!!data);
+        setIsAdmin(data?.is_admin === true);
       } else {
         setIsAdmin(false);
       }
