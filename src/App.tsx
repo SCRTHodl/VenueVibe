@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { handleEmailVerification } from './lib/auth/handleEmailVerification';
 import { Map, ArrowLeft, Sparkles, QrCode, Palette } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
@@ -73,7 +74,7 @@ import type {
   GroupActivity, 
   UserLocation, 
   ViewState,
-  AppStats as AppStatsType,
+  AppStatsType,
   EventTheme,
   AppTheme,
   UserStory
@@ -137,8 +138,6 @@ function App() {
     initializeWallet();
     
     // Handle email verification from URL if present
-    // Import synchronously to ensure it runs immediately
-    const { handleEmailVerification } = require('./lib/auth/handleEmailVerification');
     handleEmailVerification().then((result: { success: boolean; message: string }) => {
       if (result.success) {
         toast.success(result.message);
