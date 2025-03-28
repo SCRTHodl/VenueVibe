@@ -6,4 +6,4 @@
 [build.environment]
   VITE_TOKEN_ECONOMY_SCHEMA = "token_economy"
   SECRETS_SCAN_OMIT_PATHS = "dist/**,apply-migrations-now.js,check-db-schema.js"
-  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_SERVICE_KEY,VITE_MAPBOX_TOKEN"
+  # SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_SERVICE_KEY,VITE_MAPBOX_TOKEN"

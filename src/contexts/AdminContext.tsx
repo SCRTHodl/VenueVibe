@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase, getAdminClient } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { adminService } from '../lib/adminService';
 import { Group, ContentModerationSettings } from '../types';
 import { useUser } from './UserContext';
 
@@ -117,27 +118,38 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return; // Non-admins don't need to load this data
         }
         
-        // Fetch moderation settings
-        const { data, error } = await supabase
-          .from('moderation_settings')
-          .select('*')
-          .single();
-        
-        if (error) {
-          if (error.code !== 'PGRST116') { // Not found error
-            console.error('Error loading moderation settings:', error);
+        try {
+          // Use adminService for fetching moderation settings
+          const settings = await adminService.getModerationSettings();
+          
+          if (settings) {
+            setModerationSettings(settings);
           }
-          return;
-        }
-        
-        if (data) {
-          setModerationSettings({
-            imageModeration: data.image_moderation,
-            textModeration: data.text_moderation,
-            moderationLevel: data.moderation_level,
-            autoDeleteFlagged: data.auto_delete_flagged,
-            notifyAdminsOnFlag: data.notify_admins_on_flag
-          });
+        } catch (serviceError) {
+          // Fallback to regular client if the admin service fails
+          console.warn('Admin service failed, falling back to regular client:', serviceError);
+          
+          const { data, error } = await supabase
+            .from('moderation_settings')
+            .select('*')
+            .single();
+          
+          if (error) {
+            if (error.code !== 'PGRST116') { // Not found error
+              console.error('Error loading moderation settings:', error);
+            }
+            return;
+          }
+          
+          if (data) {
+            setModerationSettings({
+              imageModeration: data.image_moderation,
+              textModeration: data.text_moderation,
+              moderationLevel: data.moderation_level,
+              autoDeleteFlagged: data.auto_delete_flagged,
+              notifyAdminsOnFlag: data.notify_admins_on_flag
+            });
+          }
         }
       } catch (error) {
         console.error('Error in loadModerationSettings:', error);

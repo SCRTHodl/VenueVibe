@@ -1,42 +1,18 @@
 // Re-export the supabase client from lib/supabase.ts
 import { supabase } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 
-// Export the service role client for token economy operations
+// Import adminService for server-side admin operations
+import { adminService } from '../lib/adminService';
+
+// Export a wrapper for admin operations that uses serverless functions
+// This approach avoids exposing the service role key in client-side code
 export const getAdminClient = () => {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  console.warn('Direct admin client access is deprecated.');
+  console.warn('Please use adminService for secure admin operations.');
   
-  // Check for both service key variable names (handle potential inconsistency)
-  const supabaseServiceKey = 
-    import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
-    import.meta.env.VITE_SUPABASE_SERVICE_KEY || 
-    '';
-  
-  if (!supabaseServiceKey) {
-    console.warn('Service role key not found, using anonymous client instead');
-    console.warn('Please ensure VITE_SUPABASE_SERVICE_ROLE_KEY is set in your .env file');
-    return supabase;
-  }
-  
-  try {
-    // Create admin client with service role key
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false
-      }
-    });
-    
-    // Log initialization in dev mode
-    if (import.meta.env.DEV) {
-      console.log('Admin client initialized with service role');
-    }
-    
-    return adminClient;
-  } catch (error) {
-    console.error('Failed to create admin client:', error);
-    return supabase; // Fallback to regular client
-  }
+  // Just return the regular client since admin operations are now handled by serverless functions
+  return supabase;
 };
 
-export { supabase };
+// Export the admin service for use in components
+export { adminService, supabase };

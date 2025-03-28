@@ -4,7 +4,8 @@ import { Map, ArrowLeft, Sparkles, QrCode, Palette } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
 import { Feed } from './components/Feed/Feed';
-import { getTokenBalance } from './lib/supabase/tokenEconomy';
+// Import tokenEconomy functions if needed in the future
+// import { getUserTokenBalance } from './lib/supabase/tokenEconomy';
 import { TEST_GROUPS, MOCK_POSTS, EVENT_THEMES } from './constants';
 
 // App statistics helper function
@@ -19,6 +20,8 @@ async function getAppStats() {
     
     // Create mock stats for demo purposes
     return {
+      subscriberCount: 150,
+      version: '1.0.0',
       userCount: 342,
       storyCount: 1289,
       topBalances: [
@@ -33,6 +36,8 @@ async function getAppStats() {
   } catch (error) {
     console.error('Error fetching app stats:', error);
     return {
+      subscriberCount: 0,
+      version: '1.0.0',
       userCount: 0,
       storyCount: 0,
       topBalances: [],
@@ -89,7 +94,7 @@ function App() {
   });
   const [groups, setGroups] = useState<Group[]>(TEST_GROUPS);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard' | 'search'>('home');
   const [groupActivities, setGroupActivities] = useState<GroupActivity[]>([]);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [appStats, setAppStats] = useState<AppStatsType>({ subscriberCount: 0, version: '1.0.0' });
@@ -323,7 +328,7 @@ function App() {
     features: userLocations.map(user => ({
       type: 'Feature',
       properties: {
-        weight: Math.max(0.2, 1 - (Date.now() - user.lastActive) / 3600000)
+        weight: Math.max(0.2, 1 - (Date.now() - (user.lastActive || Date.now())) / 3600000)
       },
       geometry: {
         type: 'Point',
@@ -464,7 +469,7 @@ function App() {
   };
 
   // Handle tab change
-  const handleTabChange = (tab: 'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard') => {
+  const handleTabChange = (tab: 'home' | 'explore' | 'create' | 'notifications' | 'profile' | 'store' | 'ratings' | 'leaderboard' | 'search') => {
     if (tab === 'create') {
       setShowContentTypeModal(true);
     } else {

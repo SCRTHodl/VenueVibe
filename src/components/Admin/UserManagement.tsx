@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, Filter, X, Shield, Clock, Star, Ban, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { adminService } from '../../lib/adminService';
 
 interface User {
   id: string;
@@ -75,12 +76,11 @@ export const UserManagement: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      const { error } = await supabase.rpc('update_user_status', {
-        p_user_id: selectedUser.id,
-        p_status: action === 'activate' ? 'active' : action
-      });
-
-      if (error) throw error;
+      // Use the adminService instead of direct RPC call
+      const status = action === 'activate' ? 'active' : action;
+      const updatedUser = await adminService.updateUserStatus(selectedUser.id, status);
+      
+      if (!updatedUser) throw new Error('Failed to update user status');
 
       // Update local state
       setUsers(prev => prev.map(user => 

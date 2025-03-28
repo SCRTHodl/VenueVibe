@@ -117,15 +117,22 @@ export type ActivityEvent = {
   id: string;
   type: string;
   userId?: string;
-  userName: string;
+  userName?: string;
+  user_name?: string; // Snake case alternative used in App.tsx
   userAvatar?: string;
   target?: string;
   content?: string;
-  createdAt: string;
+  createdAt?: string;
+  created_at?: string; // Snake case alternative used in App.tsx
   groupName?: string;   // For 'join' events
+  group_name?: string;  // Snake case alternative
   badgeName?: string;   // For 'badge' events
+  badge_name?: string;  // Snake case alternative
   giftType?: string;    // For 'gift' events
+  gift_type?: string;   // Snake case alternative
   targetName?: string;  // For 'gift' and 'like' events
+  target_name?: string; // Snake case alternative
+  fadeOut?: boolean;    // For animation
 }
 
 export type GroupActivity = {
@@ -139,10 +146,12 @@ export type GroupActivity = {
 }
 
 export interface UserLocation {
-  userId: string;
+  id?: string;        // Used in App.tsx
+  userId?: string;    // Original field
   latitude: number;
   longitude: number;
-  lastUpdated: string;
+  lastActive?: number;  // Used in App.tsx for timestamp
+  lastUpdated?: string; // Original field
 }
 
 export type ViewState = {
@@ -235,4 +244,12 @@ export interface InviteCode {
   uses: number;
   is_active: boolean;
   themeId?: string; // Associated theme ID for this invite code
+}
+
+export interface ContentModerationSettings {
+  imageModeration: boolean;
+  textModeration: boolean;
+  moderationLevel: 'low' | 'medium' | 'high';
+  autoDeleteFlagged: boolean;
+  notifyAdminsOnFlag: boolean;
 }

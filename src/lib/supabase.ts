@@ -118,35 +118,14 @@ export const supabase = createClient(
   }
 );
 
-// Create a service role client for admin operations
-// This client will be used for operations that require access to the token_economy schema
+// For admin operations, use the serverless function instead of direct service role key access
+// This ensures the service role key is not exposed in client-side code
 export const getAdminClient = () => {
-  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!serviceRoleKey) {
-    console.warn('Service role key not found. Admin operations will use regular client.');
-    return supabase; // Return regular client as fallback
-  }
-  
-  try {
-    return createClient(
-      getSupabaseUrl(),
-      serviceRoleKey,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        },
-        // Default schema is public, but can be changed with .schema() method
-        db: {
-          schema: 'public'
-        }
-      }
-    );
-  } catch (error) {
-    console.error('Failed to create admin client:', error);
-    return supabase; // Return regular client as fallback
-  }
+  // Just return the regular client since we'll be using serverless functions for admin operations
+  // The actual admin operations are implemented in adminService.ts which makes API calls
+  console.warn('Admin operations have been moved to serverless functions for security.');
+  console.warn('Use the adminService instead of direct access to admin client.');
+  return supabase;
 };
 
 // Utility to access token economy tables (now in public schema with te_ prefix)
