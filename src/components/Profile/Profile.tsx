@@ -42,13 +42,13 @@ export const Profile: React.FC<ProfileProps> = ({ stats, userStories = [], onSho
       
       try {
         const { data, error } = await supabase
-          .from('admin_panel.users')
-          .select('role')
+          .from('users') // Correct table name
+          .select('is_admin') // Correct field
           .eq('id', session.user.id)
           .single();
           
         if (error) throw error;
-        setIsAdmin(!!data);
+        setIsAdmin(data?.is_admin === true);
       } catch (error) {
         console.error('Error checking admin status:', error);
       }
