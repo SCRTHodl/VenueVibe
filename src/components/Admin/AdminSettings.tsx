@@ -21,7 +21,7 @@ export const AdminSettings: React.FC = () => {
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('admin_panel.settings')
+          .from('settings')
           .select('*');
 
         if (error) throw error;
@@ -41,7 +41,7 @@ export const AdminSettings: React.FC = () => {
     setIsSaving(true);
     try {
       for (const setting of settings) {
-        const { error } = await supabase.rpc('admin_panel.update_setting', {
+        const { error } = await supabase.rpc('update_setting', {
           p_key: setting.key,
           p_value: setting.value,
           p_description: setting.description

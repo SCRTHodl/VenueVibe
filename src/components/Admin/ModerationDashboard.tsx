@@ -111,7 +111,7 @@ export const ModerationDashboard: React.FC = () => {
   // Handle moderation action
   const handleModeration = async (itemId: string, action: 'approve' | 'reject') => {
     try {
-      const { error } = await supabase.rpc('admin_panel.record_moderation_action', {
+      const { error } = await supabase.rpc('record_moderation_action', {
         p_content_type: selectedItem?.contentType,
         p_content_id: selectedItem?.contentId,
         p_action: action,

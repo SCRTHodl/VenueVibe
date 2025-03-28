@@ -75,7 +75,7 @@ export const UserManagement: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      const { error } = await supabase.rpc('admin_panel.update_user_status', {
+      const { error } = await supabase.rpc('update_user_status', {
         p_user_id: selectedUser.id,
         p_status: action === 'activate' ? 'active' : action
       });
