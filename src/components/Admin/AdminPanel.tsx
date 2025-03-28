@@ -3,6 +3,7 @@ import { useAdmin } from '../../contexts/AdminContext';
 import { useUser } from '../../contexts/UserContext';
 import InviteCodeManager from './InviteCodeManager';
 import PromotionSettings from './PromotionSettings';
+import TokenAdmin from './TokenAdmin';
 import { Clipboard, Gift, Shield, Coins, Users, BarChart } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -43,12 +44,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
           </div>
         );
       case 'tokens':
-        return (
-          <div className="p-6">
-            <h2 className="text-xl font-bold mb-4">Token Economy</h2>
-            <p className="text-gray-500">Token economy management tools will be displayed here.</p>
-          </div>
-        );
+        return <TokenAdmin />;
       case 'users':
         return (
           <div className="p-6">

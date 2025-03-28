@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { tokenEconomyClient } from '../utils/tokenEconomyClient';
+import { tokenService, type TokenTransaction, type UserTokenData } from './tokenService';
 
 // Using secure edge function approach for token economy operations
 // This prevents exposing service role key in client code
