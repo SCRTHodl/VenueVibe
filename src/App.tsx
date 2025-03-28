@@ -479,13 +479,13 @@ function App() {
       if (!session?.user) return false;
       
       const { data, error } = await supabase
-        .from('admin_panel.users')
-        .select('role')
+        .from('users')  // CORRECT TABLE NAME
+        .select('is_admin')  // CORRECT FIELD
         .eq('id', session.user.id)
         .single();
         
       if (error) throw error;
-      return !!data;
+      return data?.is_admin === true;
     } catch (error) {
       console.error('Error checking admin access:', error);
       return false;
