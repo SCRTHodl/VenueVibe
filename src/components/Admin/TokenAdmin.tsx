@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { tokenService, type TokenTransaction, type TokenBalance } from '../../lib/tokenService';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabase';
 
 // Interface for admin user display
 interface AdminUserDisplay {
