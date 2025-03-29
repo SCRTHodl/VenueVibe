@@ -22,7 +22,7 @@ export interface UserStory {
   id: string;
   userId: string;
   caption?: string;
-  contentUrl: string;
+  content_url: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;

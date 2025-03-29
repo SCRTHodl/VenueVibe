@@ -47,7 +47,7 @@ export interface UserStory {
   id: string;
   userId: string;
   caption?: string;
-  contentUrl: string;
+  content_url: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -114,7 +114,7 @@ export const createStoryObject = ({
     id: crypto.randomUUID(),
     userId: '', // Will be set by the API
     caption,
-    contentUrl: mediaItem.url,
+    content_url: mediaItem.url,
     location,
     filter,
     status: 'published',
