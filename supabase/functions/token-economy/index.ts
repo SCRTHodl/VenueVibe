@@ -1,6 +1,61 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type Database = {
+  public: {
+    Tables: {
+      event_nfts: {
+        Row: {
+          id: string;
+          event_id: string;
+          owner_id: string;
+          amount: number;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          owner_id: string;
+          amount: number;
+          reason: string;
+          created_at?: string;
+        };
+      };
+      event_badges: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          reason: string;
+          created_at?: string;
+        };
+      };
+      user_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          created_at?: string;
+        };
+      };
+    };
+  };
+};
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
@@ -9,7 +64,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   Deno.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 interface TokenEconomyRequest {
   action: 'mint' | 'award' | 'balance';
@@ -80,7 +135,7 @@ serve(async (req: Request) => {
         return createResponse(
           true,
           'NFT minted successfully',
-          mintResult
+          mintResult[0]
         );
       }
 
@@ -107,14 +162,14 @@ serve(async (req: Request) => {
         return createResponse(
           true,
           'Badge awarded successfully',
-          awardResult
+          awardResult[0]
         );
       }
 
       case 'balance': {
         const { data: balanceResult, error: balanceError } = await supabase
           .from("user_tokens")
-          .select("sum(amount) as total")
+          .select("amount")
           .eq("user_id", body.userId)
           .single();
 
@@ -124,7 +179,7 @@ serve(async (req: Request) => {
           true,
           'Balance retrieved successfully',
           {
-            total: balanceResult?.total || 0
+            total: balanceResult?.amount || 0
           }
         );
       }
