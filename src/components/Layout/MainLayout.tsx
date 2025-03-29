@@ -16,6 +16,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { promotionSettings } = usePromotion();
   const { currentUser, isAdmin, setShowUserSettings, userTheme, updateUserTheme } = useUser();
   const [showThemeCustomizer, setShowThemeCustomizer] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Apply theme styles if a promotion theme is active
   const theme = promotionSettings.promotionTheme;
@@ -49,117 +50,121 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Main Navigation */}
       <header className="app-header bg-gradient-to-r from-[--color-accent-primary] to-[--color-accent-secondary] text-white shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 className="text-xl font-bold text-white">
-              {theme?.logoUrl ? (
-                <img 
-                  src={theme.logoUrl} 
-                  alt="Logo" 
-                  className="h-8"
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-white/10"
+              aria-label="Toggle navigation"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
                 />
-              ) : (
-                'SottoCity'
-              )}
-            </h1>
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold">VenueVibe</h1>
           </div>
           
-          <div className="flex items-center space-x-4">
-            {isAdmin && (
-              <button className="text-sm font-medium text-white hover:text-gray-200">
-                Admin Panel
-              </button>
-            )}
-            
-            <button 
-              className="flex items-center text-sm font-medium text-white hover:text-gray-200" 
+          <div className="hidden md:flex items-center gap-4">
+            <button
               onClick={() => setShowThemeCustomizer(true)}
+              className="p-2 rounded-lg hover:bg-white/10"
+              aria-label="Customize theme"
             >
-              <Palette className="w-5 h-5 mr-1" />
-              <span className="hidden sm:inline">Customize</span>
+              <Palette className="w-5 h-5" />
             </button>
             
-            <div className="flex items-center cursor-pointer" onClick={() => setShowUserSettings(true)}>
-              <img 
-                src={currentUser?.avatar || 'https://via.placeholder.com/40'} 
-                alt="Profile" 
-                className="w-8 h-8 rounded-full border-2 border-white"
-              />
-              <span className="ml-2 text-sm font-medium hidden sm:block text-white">
-                {currentUser?.name || 'Guest'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
-      
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Sidebar - Left */}
-          <div className="hidden md:block">
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <h2 className="font-bold text-lg mb-3">Menu</h2>
-              <nav className="space-y-2">
-                <a href="#" className="block px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium">
-                  Home
-                </a>
-                <a href="#" className="block px-3 py-2 hover:bg-gray-50 rounded-lg">
-                  My Groups
-                </a>
-                <a href="#" className="block px-3 py-2 hover:bg-gray-50 rounded-lg">
-                  Explore
-                </a>
-                <a href="#" className="block px-3 py-2 hover:bg-gray-50 rounded-lg">
-                  Messages
-                </a>
-                <a href="#" className="block px-3 py-2 hover:bg-gray-50 rounded-lg">
-                  Notifications
-                </a>
-              </nav>
-            </div>
-            
-            {promotionSettings.isEnabled && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="font-bold text-lg mb-2">{promotionSettings.specialOffer || 'Special Offer'}</h2>
-                <p className="text-gray-600 mb-3">{promotionSettings.contentFocus || 'Check out our latest offers'}</p>
-                
-                {promotionSettings.promotionalBoxes && promotionSettings.promotionalBoxes.length > 0 && (
-                  <div className="grid grid-cols-1 gap-3 mb-3">
-                    {promotionSettings.promotionalBoxes.map((box, index) => (
-                      <div key={index} className="border border-dashed border-gray-300 p-3 rounded-lg">
-                        <h3 className="font-medium">{box.title || 'Promotion'}</h3>
-                        <p className="text-sm text-gray-600">{box.description || 'Limited time offer'}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {promotionSettings.customBannerUrl && (
-                  <div className="mb-3">
-                    <img 
-                      src={promotionSettings.customBannerUrl} 
-                      alt="Promotional" 
-                      className="w-full h-auto rounded-lg"
+            {currentUser && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{currentUser.name}</span>
+                <button
+                  onClick={() => setShowUserSettings(true)}
+                  className="p-2 rounded-lg hover:bg-white/10"
+                  aria-label="User settings"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
-                  </div>
-                )}
-                
-                <button className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                  Learn More
+                  </svg>
                 </button>
               </div>
             )}
           </div>
-          
-          {/* Main Content */}
-          <div className="md:col-span-2">
-            <CreatePostForm />
-            
-            {/* Main Content Area */}
-            {children ? children : <PostsList />}
-          </div>
         </div>
-      </main>
+      </header>
+
+      {/* Mobile sidebar */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+      
+      <div className="flex flex-col md:flex-row h-full">
+        {/* Sidebar */}
+        <nav
+          className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-20 ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="h-full flex flex-col">
+            <div className="p-4 border-b">
+              <h2 className="text-xl font-bold">Menu</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <ul className="space-y-2">
+                <li>
+                  <a href="/" className="block p-3 rounded-lg hover:bg-gray-100">
+                    Home
+                  </a>
+                </li>
+                <li>
+                  <a href="/events" className="block p-3 rounded-lg hover:bg-gray-100">
+                    Events
+                  </a>
+                </li>
+                <li>
+                  <a href="/nfts" className="block p-3 rounded-lg hover:bg-gray-100">
+                    NFTs
+                  </a>
+                </li>
+                <li>
+                  <a href="/badges" className="block p-3 rounded-lg hover:bg-gray-100">
+                    Badges
+                  </a>
+                </li>
+                {isAdmin && (
+                  <li>
+                    <a href="/admin" className="block p-3 rounded-lg hover:bg-gray-100">
+                      Admin
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </nav>
+
+        {/* Main content */}
+        <main className="flex-1 p-4 md:p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };

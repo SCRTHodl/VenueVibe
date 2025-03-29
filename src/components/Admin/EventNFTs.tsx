@@ -49,7 +49,6 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
         .eq('event_id', event.id);
 
       if (nftError) throw nftError;
-      setNFTs(eventNFTs || []);
 
       // Load badges for this event
       const { data: eventBadges, error: badgeError } = await supabase
@@ -58,6 +57,8 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
         .eq('event_id', event.id);
 
       if (badgeError) throw badgeError;
+
+      setNFTs(eventNFTs || []);
       setBadges(eventBadges || []);
     } catch (error) {
       console.error('Error loading event assets:', error);
@@ -67,48 +68,30 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
     }
   };
 
-  const loadUsers = async () => {
+  const fetchUsers = async () => {
     try {
       setIsFetchingUsers(true);
-      const { data: usersData, error } = await supabase
-        .from('users')
-        .select('id, email, name');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .order('name');
 
       if (error) throw error;
-      setUsers(usersData || []);
+      setUsers(data || []);
     } catch (error) {
-      console.error('Error loading users:', error);
-      toast.error('Failed to load users');
+      console.error('Error fetching users:', error);
+      toast.error('Failed to fetch users');
     } finally {
       setIsFetchingUsers(false);
     }
   };
 
-  const mintNFT = async () => {
-    if (!event?.id || !selectedUser) return;
-
+  const handleMintNFT = async (userId: string) => {
     try {
       setIsMinting(true);
-      
-      const { error } = await supabase
-        .from('event_nfts')
-        .insert([{
-          event_id: event.id,
-          owner_id: selectedUser.id,
-          metadata: {
-            image: event.imageUrl || 'default-nft-image',
-            name: `${event.name} NFT`,
-            description: `Exclusive NFT for ${event.name}`,
-            minted_at: new Date().toISOString(),
-            owner: selectedUser.name
-          }
-        }]);
-
-      if (error) throw error;
-
+      await tokenService.mintNFT(userId, event.id, { event_id: event.id });
+      await loadEventAssets();
       toast.success('NFT minted successfully');
-      loadEventAssets();
-      setShowUserModal(false);
     } catch (error) {
       console.error('Error minting NFT:', error);
       toast.error('Failed to mint NFT');
@@ -117,30 +100,12 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
     }
   };
 
-  const awardBadge = async (badgeType: EventBadgeType['badge_type']) => {
-    if (!event?.id || !selectedUser) return;
-
+  const handleAwardBadge = async (userId: string, badgeType: 'attendance' | 'participant' | 'contributor') => {
     try {
       setIsAwarding(true);
-      
-      const { error } = await supabase
-        .from('event_badges')
-        .insert([{
-          event_id: event.id,
-          user_id: selectedUser.id,
-          badge_type: badgeType,
-          metadata: {
-            name: `${badgeType.charAt(0).toUpperCase() + badgeType.slice(1)} Badge`,
-            awarded_at: new Date().toISOString(),
-            awardee: selectedUser.name
-          }
-        }]);
-
-      if (error) throw error;
-
+      await tokenService.awardBadge(userId, event.id, badgeType, { event_id: event.id });
+      await loadEventAssets();
       toast.success('Badge awarded successfully');
-      loadEventAssets();
-      setShowUserModal(false);
     } catch (error) {
       console.error('Error awarding badge:', error);
       toast.error('Failed to award badge');
@@ -149,163 +114,182 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
     }
   };
 
-  const renderNFTs = () => {
-    if (nfts.length === 0) return <p>No NFTs found for this event</p>;
-
-    return nfts.map((nft) => (
-      <div key={nft.id} className="p-4 border-b last:border-b-0">
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0">
-            <img
-              src={nft.metadata?.image || '/default-nft.png'}
-              alt={nft.metadata?.name || 'NFT'}
-              className="w-24 h-24 object-cover rounded-lg"
-            />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold">{nft.metadata?.name || 'Unknown NFT'}</h3>
-            <p className="text-gray-600">{nft.metadata?.description || 'No description'}</p>
-            <p className="mt-2 text-sm text-gray-500">
-              Owner: {nft.owner_id}
-            </p>
-            <p className="text-sm text-gray-500">
-              Minted: {new Date(nft.metadata?.minted_at || '').toLocaleString()}
-            </p>
-          </div>
-        </div>
-      </div>
-    ));
+  const handleSelectUser = (user: User) => {
+    setSelectedUser(user);
+    setShowUserModal(false);
   };
-
-  const renderBadges = () => {
-    if (badges.length === 0) return <p>No badges found for this event</p>;
-
-    return badges.map((badge) => (
-      <div key={badge.id} className="p-4 border-b last:border-b-0">
-        <div className="flex items-center gap-4">
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <span className="text-blue-600 font-semibold">
-                {badge.badge_type.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold">
-              {badge.metadata?.name || badge.badge_type}
-            </h3>
-            <p className="text-sm text-gray-500">
-              Awarded to: {badge.user_id}
-            </p>
-            <p className="text-sm text-gray-500">
-              Awarded at: {new Date(badge.metadata?.awarded_at || '').toLocaleString()}
-            </p>
-          </div>
-        </div>
-      </div>
-    ));
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-4">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Event NFTs</h3>
-        <div className="border rounded-lg p-4">
-          {renderNFTs()}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h2 className="text-xl font-bold">Event NFTs and Badges</h2>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowUserModal(true)}
+            disabled={isMinting || isAwarding}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Mint NFT
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedUser(null);
+              setShowUserModal(true);
+            }}
+            disabled={isMinting || isAwarding}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Award Badge
+          </Button>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Event Badges</h3>
-        <div className="border rounded-lg p-4">
-          {renderBadges()}
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <LoadingSpinner />
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="col-span-full">
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="font-semibold mb-4">Event NFTs</h3>
+              <div className="space-y-4">
+                {nfts.map((nft) => (
+                  <div
+                    key={nft.id}
+                    className="p-4 border rounded-lg flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">Owner: {nft.owner_id}</p>
+                      <p className="text-sm text-gray-500">Minted: {new Date(nft.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        NFT
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {nfts.length === 0 && (
+                  <p className="text-center text-gray-500">No NFTs minted yet</p>
+                )}
+              </div>
+            </div>
+          </div>
 
-      <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          onClick={() => setShowUserModal(true)}
-          disabled={isMinting || isAwarding}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          {isMinting ? (
-            <>
-              <LoadingSpinner className="mr-2" />
-              Minting NFT...
-            </>
-          ) : (
-            'Mint NFT'
-          )}
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (selectedUser) {
-              awardBadge('participant');
-            }
-          }}
-          disabled={!selectedUser || isAwarding}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          {isAwarding ? (
-            <>
-              <LoadingSpinner className="mr-2" />
-              Awarding Badge...
-            </>
-          ) : (
-            'Award Badge'
-          )}
-        </Button>
-      </div>
+          <div className="col-span-full">
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="font-semibold mb-4">Event Badges</h3>
+              <div className="space-y-4">
+                {badges.map((badge) => (
+                  <div
+                    key={badge.id}
+                    className="p-4 border rounded-lg flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">Owner: {badge.owner_id}</p>
+                      <p className="text-sm text-gray-500">Type: {badge.type}</p>
+                      <p className="text-sm text-gray-500">Awarded: {new Date(badge.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                        Badge
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {badges.length === 0 && (
+                  <p className="text-center text-gray-500">No badges awarded yet</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal
         isOpen={showUserModal}
         onClose={() => setShowUserModal(false)}
-        title="Select User"
+        title={selectedUser ? 'Select Action' : 'Select User'}
       >
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Select User</h3>
-            <Button
-              variant="outline"
-              onClick={() => {
-                loadUsers();
-              }}
-              className="flex items-center gap-2"
-            >
-              <LoadingSpinner className="w-4 h-4" />
-              {isFetchingUsers ? 'Loading...' : 'Refresh Users'}
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {users.map((user) => (
+        {selectedUser ? (
+          <div className="space-y-4">
+            <p className="text-lg font-semibold">{selectedUser.name}</p>
+            <p className="text-gray-500">{selectedUser.email}</p>
+            <div className="flex gap-2">
               <Button
-                key={user.id}
-                variant={selectedUser?.id === user.id ? "default" : "outline"}
-                onClick={() => setSelectedUser(user)}
-                className="w-full justify-start"
+                onClick={() => handleMintNFT(selectedUser.id)}
+                disabled={isMinting}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{user.name}</span>
-                  <span className="text-sm text-gray-500">{user.email}</span>
-                </div>
+                {isMinting ? 'Minting...' : 'Mint NFT'}
               </Button>
-            ))}
+              <Button
+                onClick={() => handleAwardBadge(selectedUser.id, 'attendance')}
+                disabled={isAwarding}
+              >
+                {isAwarding ? 'Awarding...' : 'Award Attendance Badge'}
+              </Button>
+              <Button
+                onClick={() => handleAwardBadge(selectedUser.id, 'participant')}
+                disabled={isAwarding}
+              >
+                {isAwarding ? 'Awarding...' : 'Award Participant Badge'}
+              </Button>
+              <Button
+                onClick={() => handleAwardBadge(selectedUser.id, 'contributor')}
+                disabled={isAwarding}
+              >
+                {isAwarding ? 'Awarding...' : 'Award Contributor Badge'}
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search users..."
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  const searchTerm = e.target.value.toLowerCase();
+                  const filteredUsers = users.filter(user =>
+                    user.name.toLowerCase().includes(searchTerm) ||
+                    user.email.toLowerCase().includes(searchTerm)
+                  );
+                  setUsers(filteredUsers);
+                }}
+              />
+              {isFetchingUsers && (
+                <div className="absolute right-2 top-2">
+                  <LoadingSpinner size={16} />
+                </div>
+              )}
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {users.map((user) => (
+                <div
+                  key={user.id}
+                  className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleSelectUser(user)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        Select
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

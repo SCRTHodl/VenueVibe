@@ -7,16 +7,14 @@ import { AIInstructionsManager } from './AIInstructionsManager';
 import { FeaturedContentManager } from './FeaturedContentManager';
 import { AIContentPerformance } from './AIContentPerformance';
 import SpecialEventsManager from './SpecialEventsManager';
+import { Button } from '../ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 
 interface AdminLayoutProps {
   onClose?: () => void;
 }
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
-  // Use onClose in a button to avoid the unused variable warning
-  const handleClose = () => {
-    if (onClose) onClose();
-  };
   const [activeTab, setActiveTab] = useState<'moderation' | 'users' | 'settings' | 'ai' | 'featured' | 'performance' | 'specialEvents'>('moderation');
 
   const tabs = [
@@ -51,52 +49,48 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121826] flex">
-      {/* Sidebar */}
-      <div className="w-64 border-r border-gray-700 p-4">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2">
-            <LayoutDashboard size={24} className="text-[--color-accent-primary]" />
-            <h1 className="text-xl font-bold text-white">Admin Panel</h1>
-          </div>
-          {onClose && (
-            <button 
-              onClick={handleClose} 
-              className="text-white hover:text-gray-300"
-              aria-label="Close admin panel"
-            >
-              <ChevronRight size={20} />
-            </button>
-          )}
-        </div>
+    <div className="flex flex-col h-full w-full">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-xl font-semibold">Admin Panel</h2>
+        {onClose && (
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        )}
+      </div>
 
-        <nav className="space-y-2">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            return (
+      <div className="flex flex-col sm:flex-row h-full">
+        <div className="w-full sm:w-64 border-r overflow-y-auto">
+          <nav className="p-4 space-y-2">
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
-                  activeTab === tab.id 
-                    ? 'bg-[--color-accent-primary]/20 text-[--color-accent-primary]' 
-                    : 'text-gray-400 hover:bg-[#1a2234]'
+                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted'
                 }`}
               >
-                <Icon size={18} />
+                <tab.icon className="w-5 h-5" />
                 <span>{tab.label}</span>
-                {activeTab === tab.id && (
-                  <ChevronRight size={16} className="ml-auto" />
-                )}
               </button>
-            );
-          })}
-        </nav>
-      </div>
+            ))}
+          </nav>
+        </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        {renderContent()}
+        <div className="flex-1 overflow-y-auto p-4">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {tabs.find(t => t.id === activeTab)?.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {renderContent()}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

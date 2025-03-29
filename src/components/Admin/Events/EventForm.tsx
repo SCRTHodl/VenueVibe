@@ -6,7 +6,7 @@ import { SpecialEvent, SpecialOffer, EventTheme } from '../../../types';
 
 interface EventFormProps {
   event: SpecialEvent | null;
-  onSave: (event: SpecialEvent) => void;
+  onSave: (event: SpecialEvent | null) => void;
   isSaving?: boolean;
 }
 
@@ -80,42 +80,38 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSave, isSaving = false }
   };
 
   return (
-    <Card>
+    <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>Event Details</CardTitle>
+        <CardTitle>{event ? 'Edit Event' : 'Create New Event'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Event Name</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Event Name</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Location</label>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Location</label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Start Date</label>
               <input
@@ -123,7 +119,8 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSave, isSaving = false }
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleChange}
-                className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border rounded-md"
+                required
               />
             </div>
             <div>
@@ -133,160 +130,120 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSave, isSaving = false }
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleChange}
-                className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border rounded-md"
+                required
               />
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Event Image URL</label>
-            <input
-              type="text"
-              name="imageUrl"
-              value={formData.imageUrl}
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              name="description"
+              value={formData.description}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border rounded-md"
+              rows={4}
+              required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Venue ID</label>
-            <input
-              type="text"
-              name="venueId"
-              value={formData.venueId}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Capacity</label>
+              <input
+                type="number"
+                name="capacity"
+                value={formData.capacity}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Invite Code</label>
+              <input
+                type="text"
+                name="inviteCode"
+                value={formData.inviteCode}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Venue Name</label>
-            <input
-              type="text"
-              name="venueName"
-              value={formData.venueName}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Capacity</label>
-            <input
-              type="number"
-              name="capacity"
-              value={formData.capacity}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Invite Code</label>
-            <input
-              type="text"
-              name="inviteCode"
-              value={formData.inviteCode}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Is Active</label>
-            <input
-              type="checkbox"
-              name="isActive"
-              checked={formData.isActive}
-              onChange={handleChange}
-              className="w-4 h-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium mb-2">Special Offers</h3>
-            {formData.specialOffers.map((offer, index) => (
-              <div key={index} className="border rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-sm font-medium">Offer {index + 1}</h4>
-                  <Button
-                    variant="destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSpecialOffer(index);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+            <label className="block text-sm font-medium mb-1">Special Offers</label>
+            <div className="space-y-4">
+              {formData.specialOffers.map((offer, index) => (
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Title</label>
                     <input
                       type="text"
+                      placeholder="Offer Title"
                       value={offer.title}
                       onChange={(e) => handleSpecialOffersChange(index, 'title', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border rounded-md"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Description</label>
-                    <textarea
-                      value={offer.description}
-                      onChange={(e) => handleSpecialOffersChange(index, 'description', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Discount Amount</label>
-                    <input
-                      type="number"
-                      value={offer.discountAmount}
-                      onChange={(e) => handleSpecialOffersChange(index, 'discountAmount', Number(e.target.value))}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Discount Type</label>
-                    <select
-                      value={offer.discountType}
-                      onChange={(e) => handleSpecialOffersChange(index, 'discountType', e.target.value as 'percentage' | 'fixed' | 'tokenBased')}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="percentage">Percentage</option>
-                      <option value="fixed">Fixed Amount</option>
-                      <option value="tokenBased">Token Based</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Token Cost</label>
-                    <input
-                      type="number"
-                      value={offer.tokenCost}
-                      onChange={(e) => handleSpecialOffersChange(index, 'tokenCost', Number(e.target.value))}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Redemption Code</label>
                     <input
                       type="text"
-                      value={offer.redemptionCode}
-                      onChange={(e) => handleSpecialOffersChange(index, 'redemptionCode', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Description"
+                      value={offer.description}
+                      onChange={(e) => handleSpecialOffersChange(index, 'description', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="number"
+                      placeholder="Discount Amount"
+                      value={offer.discountAmount}
+                      onChange={(e) => handleSpecialOffersChange(index, 'discountAmount', Number(e.target.value))}
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSpecialOffer(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              onClick={(e) => {
-                e.preventDefault();
-                addSpecialOffer();
-              }}
-            >
-              Add Special Offer
-            </Button>
+              ))}
+              <Button
+                type="button"
+                onClick={addSpecialOffer}
+                className="w-full sm:w-auto"
+              >
+                Add Special Offer
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Event
+
+          <div className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onSave(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSaving}
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Event'
+              )}
             </Button>
           </div>
         </form>
