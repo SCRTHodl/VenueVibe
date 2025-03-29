@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { Shield, Users, Settings, Brain, LayoutDashboard, ChevronRight, Sparkles, BarChart2 } from 'lucide-react';
+import { Shield, Users, Settings, Brain, LayoutDashboard, ChevronRight, Sparkles, BarChart2, Calendar } from 'lucide-react';
 import { ModerationDashboard } from './ModerationDashboard';
 import { UserManagement } from './UserManagement';
 import { AdminSettings } from './AdminSettings';
 import { AIInstructionsManager } from './AIInstructionsManager';
 import { FeaturedContentManager } from './FeaturedContentManager';
 import { AIContentPerformance } from './AIContentPerformance';
+import SpecialEventsManager from './SpecialEventsManager';
 
 interface AdminLayoutProps {
   onClose?: () => void;
 }
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<'moderation' | 'users' | 'settings' | 'ai' | 'featured' | 'performance'>('moderation');
+  // Use onClose in a button to avoid the unused variable warning
+  const handleClose = () => {
+    if (onClose) onClose();
+  };
+  const [activeTab, setActiveTab] = useState<'moderation' | 'users' | 'settings' | 'ai' | 'featured' | 'performance' | 'specialEvents'>('moderation');
 
   const tabs = [
     { id: 'moderation', label: 'Moderation', icon: Shield },
@@ -20,7 +25,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'ai', label: 'AI Instructions', icon: Brain },
     { id: 'featured', label: 'Featured Content', icon: Sparkles },
-    { id: 'performance', label: 'AI Analytics', icon: BarChart2 }
+    { id: 'performance', label: 'AI Analytics', icon: BarChart2 },
+    { id: 'specialEvents', label: 'Special Events', icon: Calendar }
   ];
 
   const renderContent = () => {
@@ -37,6 +43,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
         return <FeaturedContentManager />;
       case 'performance':
         return <AIContentPerformance />;
+      case 'specialEvents':
+        return <SpecialEventsManager />;
       default:
         return null;
     }
@@ -46,9 +54,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onClose }) => {
     <div className="fixed inset-0 z-50 bg-[#121826] flex">
       {/* Sidebar */}
       <div className="w-64 border-r border-gray-700 p-4">
-        <div className="flex items-center gap-2 mb-8">
-          <LayoutDashboard size={24} className="text-[--color-accent-primary]" />
-          <h1 className="text-xl font-bold text-white">Admin Panel</h1>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard size={24} className="text-[--color-accent-primary]" />
+            <h1 className="text-xl font-bold text-white">Admin Panel</h1>
+          </div>
+          {onClose && (
+            <button 
+              onClick={handleClose} 
+              className="text-white hover:text-gray-300"
+              aria-label="Close admin panel"
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
         </div>
 
         <nav className="space-y-2">

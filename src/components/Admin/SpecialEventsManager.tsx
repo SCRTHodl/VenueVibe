@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { usePromotion } from '../../contexts/PromotionContext';
 import { SpecialEvent, SpecialOffer, EventTheme } from '../../types';
-import { Calendar, MapPin, Tag, Plus, Edit, Trash2, Dollar, Clock, Users } from 'lucide-react';
+import { Calendar, MapPin, Tag, Plus, Edit, Trash2, DollarSign, Clock, Users } from 'lucide-react';
 
 const SpecialEventsManager: React.FC = () => {
   const { promotionSettings, handleUpdatePromotionSettings } = usePromotion();
@@ -621,7 +621,7 @@ const SpecialEventsManager: React.FC = () => {
                     <p className="text-sm text-gray-600">{offer.description}</p>
                     <div className="flex text-xs text-gray-500 mt-1">
                       <span className="flex items-center mr-3">
-                        <Dollar size={12} className="mr-1" />
+                        <DollarSign size={12} className="mr-1" />
                         {offer.discountType === 'percentage' 
                           ? `${offer.discountAmount}% off` 
                           : offer.discountType === 'fixed' 

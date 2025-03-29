@@ -6,7 +6,7 @@ import { supabase } from './lib/supabase';
 import { Feed } from './components/Feed/Feed';
 // Import tokenEconomy functions if needed in the future
 // import { getUserTokenBalance } from './lib/supabase/tokenEconomy';
-import { TEST_GROUPS, MOCK_POSTS, EVENT_THEMES } from './constants';
+import { TEST_GROUPS, MOCK_POSTS, EVENT_THEMES } from './constants/index';
 
 // App statistics helper function
 async function getAppStats() {
@@ -56,7 +56,8 @@ import { EventModal } from './components/EventTheme/EventModal';
 import { InviteCodeEntry } from './components/InviteCode/InviteCodeEntry';
 import { ThemeCustomizer } from './components/ThemeCustomizer/ThemeCustomizer';
 // Only import debug components in development mode
-import { EmailVerificationDebug } from './components/Debug/EmailVerificationDebug';
+// EmailVerificationDebug is temporarily disabled for cleaner testing
+// import { EmailVerificationDebug } from './components/Debug/EmailVerificationDebug';
 import { LocalContentFeed } from './components/Trending/LocalContentFeed';
 import { StoryModal } from './components/Stories/StoryModal';
 import { VoiceAssistant } from './components/VoiceAssistant';
@@ -72,17 +73,22 @@ import { CreatePost } from './components/Post/CreatePost';
 // Lazy load the map component to improve initial load time
 const MapView = lazy(() => import('./components/Map'));
 
+// Import types from types/index.ts which has the consistent definitions
 import type { 
-  Group, 
+  Group,
   Post,
+  GroupActivity,
+  EventTheme,
+  UserStory,
+} from './types/index';
+
+// Import remaining types from main types.ts file
+import type { 
   ActivityEvent, 
-  GroupActivity, 
   UserLocation, 
   ViewState,
   AppStatsType,
-  EventTheme,
   AppTheme,
-  UserStory
 } from './types';
 
 function App() {
@@ -175,12 +181,12 @@ function App() {
       }
       
       // Apply CSS variable updates based on current theme
-      document.documentElement.style.setProperty('--color-accent-primary', currentTheme.primary);
-      document.documentElement.style.setProperty('--color-accent-secondary', currentTheme.secondary);
-      document.documentElement.style.setProperty('--color-bg-primary', currentTheme.background);
-      document.documentElement.style.setProperty('--color-bg-secondary', currentTheme.cardBackground);
-      document.documentElement.style.setProperty('--color-text-primary', currentTheme.textPrimary);
-      document.documentElement.style.setProperty('--color-text-secondary', currentTheme.textSecondary);
+      document.documentElement.style.setProperty('--color-accent-primary', currentTheme.primary || null);
+      document.documentElement.style.setProperty('--color-accent-secondary', currentTheme.secondary || null);
+      document.documentElement.style.setProperty('--color-bg-primary', currentTheme.background || null);
+      document.documentElement.style.setProperty('--color-bg-secondary', currentTheme.cardBackground || null);
+      document.documentElement.style.setProperty('--color-text-primary', currentTheme.textPrimary || null);
+      document.documentElement.style.setProperty('--color-text-secondary', currentTheme.textSecondary || null);
     };
     
     loadAppStats();
@@ -305,6 +311,10 @@ function App() {
   useEffect(() => {
     setGroupActivities(groups.map(group => ({
       id: group.id,
+      type: 'activity', // Add required type property
+      userId: 'system', // Add required userId property
+      groupId: group.id, // Add required groupId property
+      createdAt: new Date().toISOString(), // Add required createdAt property
       level: Math.floor(Math.random() * 10) + 1,
       surgeCount: 0
     })));
@@ -313,8 +323,8 @@ function App() {
       if (isMapVisible) {
         setGroupActivities(prev => prev.map(activity => ({
           ...activity,
-          level: Math.min(10, Math.max(1, activity.level + (Math.random() > 0.5 ? 1 : -1))),
-          surgeCount: Math.random() > 0.8 ? activity.surgeCount + 1 : activity.surgeCount
+          level: Math.min(10, Math.max(1, (activity.level || 1) + (Math.random() > 0.5 ? 1 : -1))),
+          surgeCount: Math.random() > 0.8 ? (activity.surgeCount || 0) + 1 : (activity.surgeCount || 0)
         })));
       }
     }, 5000);
@@ -442,7 +452,7 @@ function App() {
       // Filter posts to match the filtered groups
       const groupIds = filteredGroups.map(g => g.id);
       const filteredPosts = MOCK_POSTS.filter(post => 
-        groupIds.includes(post.venue.id)
+        post.venue && groupIds.includes(post.venue.id)
       );
       setPosts(filteredPosts);
     }
@@ -552,7 +562,15 @@ function App() {
           <Profile 
             stats={appStats} 
             userStories={userStories} 
-            onShowAdminPanel={() => setShowAdminPanel(true)}
+            onShowAdminPanel={async () => {
+              // Check admin access before showing panel
+              const isAdmin = await checkAdminAccess();
+              if (isAdmin) {
+                setShowAdminPanel(true);
+              } else {
+                toast.error('You do not have admin access');
+              }
+            }}
           />
         );
       case 'store':
@@ -819,8 +837,8 @@ function App() {
         </div>
       )}
       
-      {/* Debug tool for email verification - only visible in development */}
-      {import.meta.env.DEV && <EmailVerificationDebug />}
+      {/* Debug tool for email verification - temporarily hidden */}
+      {/* {import.meta.env.DEV && <EmailVerificationDebug />} */}
     </div>
   );
 }

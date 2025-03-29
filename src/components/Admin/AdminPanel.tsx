@@ -5,6 +5,7 @@ import InviteCodeManager from './InviteCodeManager';
 import PromotionSettings from './PromotionSettings';
 import TokenAdmin from './TokenAdmin';
 import SpecialEventsManager from './SpecialEventsManager';
+import AdminPanelDebug from './AdminPanelDebug';
 import { Clipboard, Gift, Shield, Coins, Users, BarChart, Calendar } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -69,6 +70,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   return (
     <div className="flex flex-col h-full max-h-[80vh]">
+      {/* Debug component - remove after troubleshooting */}
+      <AdminPanelDebug />
       <div className="flex border-b">
         <div className="w-64 border-r bg-gray-50 p-4">
           <h2 className="font-bold text-xl mb-6">Admin Panel</h2>
@@ -86,13 +89,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
               <span>Promotion</span>
             </button>
             
+            {/* Special Events Button - forced visible with !important styles */}
             <button 
               onClick={() => setActiveTab('specialEvents')}
               className={`flex items-center w-full px-3 py-2 text-left rounded-md ${
                 activeTab === 'specialEvents' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'hover:bg-gray-100'
+                  ? 'bg-blue-100 text-blue-700 !block' 
+                  : 'hover:bg-gray-100 !block'
               }`}
+              style={{ display: 'flex !important' }}
             >
               <Calendar className="w-5 h-5 mr-2" />
               <span>Special Events</span>

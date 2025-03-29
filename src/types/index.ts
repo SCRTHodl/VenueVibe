@@ -17,15 +17,21 @@ export interface Rating {
   badges?: string[];
 }
 
+// UserStory interface that's compatible with both implementations
 export interface UserStory {
   id: string;
   userId: string;
   userName: string;
   userAvatar: string;
-  media: {
+  // Media can be a string (types.ts) or an array of objects (types/index.ts)
+  media: string | {
     type: 'image' | 'video';
     url: string;
   }[];
+  // Required fields from types.ts
+  timestamp: string;
+  viewed: boolean;
+  // Optional fields used in the StoryModal component
   caption?: string;
   location?: string;
   music?: string;
@@ -35,6 +41,7 @@ export interface UserStory {
     x: number;
     y: number;
   }[];
+  // Other important fields for story functionality
   filter?: string;
   createdAt: string;
   expiresAt: string;
@@ -67,6 +74,21 @@ export interface ModerationResult {
 }
 
 // Chat & Group types for the map chat functionality
+// Group activity type for map animations and activity indicators
+export interface GroupActivity {
+  id: string;
+  type: string;
+  userId: string;
+  groupId: string;
+  createdAt: string;
+  level: number; // Required in the MapMarker component
+  surgeCount: number; // Required in the MapMarker component
+}
+
+// Import PopularTimes from types.ts for compatibility
+import type { PopularTimes } from '../types';
+
+// Group interface compatible with both types.ts and local usage
 export interface Group {
   id: string;
   name: string;
@@ -78,14 +100,17 @@ export interface Group {
   category: string;
   rating: number;
   priceRange: string;
-  photos: string[];
-  popularTimes?: {
+  photos?: string[]; // Make optional to match types.ts version
+  inviteCode?: string; // Property for invite code
+  eventTheme?: EventTheme; // Property for event theme
+  image?: string; // Added for compatibility with types.ts
+  venueId?: string; // Added for compatibility with types.ts
+  // Make popularTimes compatible with both interfaces
+  popularTimes?: PopularTimes | {
     now: string;
     trend: 'up' | 'down' | 'stable';
     waitTime: string;
   };
-  inviteCode?: string;
-  eventTheme?: EventTheme;
 }
 
 export interface Channel {
@@ -134,9 +159,18 @@ export interface EventTheme {
   isActive: boolean;
 }
 
-// Post type for venue feed
-// Import the Post interface from main types file to keep definitions in sync
-export type { Post } from '../types';
+// Fix circular import
+export interface Post {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Re-export Database type from database.types.ts
+export type { Database } from './database.types';
 
 // Promotion Box for the admin panel
 export interface PromotionBox {

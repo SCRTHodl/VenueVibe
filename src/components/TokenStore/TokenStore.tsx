@@ -36,7 +36,7 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
   const [items, setItems] = useState<DigitalItem[]>([]);
   const [ownedItems, setOwnedItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState<'price-asc' | 'price-desc' | 'newest' | 'rarity'>('newest');
+  const [sortOrder, setSortOrder] = useState<'price-asc' | 'price-desc' | 'newest' | 'rarity' | 'featured'>('newest');
   const [cartItems, setCartItems] = useState<{item: DigitalItem, quantity: number}[]>([]);
   const [isConfirmingPurchase, setIsConfirmingPurchase] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -55,6 +55,7 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
     balance, 
     earnTokens, 
     spendTokens, 
+    purchaseTokens,
     isInitialized, 
     initializeWallet 
   } = useTokenStore();
@@ -112,8 +113,7 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
     const rarityOrder = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
     
     switch (sortOrder) {
-      case 'price-desc':
-        // Fallback for 'featured' sorting - use price-desc instead
+      case 'featured':
         // Spring Training badge always first, then by rarity
         if (a.id === 'spring-training-2025') return -1;
         if (b.id === 'spring-training-2025') return 1;

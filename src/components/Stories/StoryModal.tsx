@@ -8,7 +8,8 @@ import {
 // Used in JSX animations - ESLint may not detect usage in JSX elements
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ModerationResult, UserStory } from '../../types';
+import type { UserStory } from '../../types';
+import type { ModerationResult } from '../../types/index';
 import { STORY_FILTERS } from './Filters/filters';
 // import { StoryFilter } from './Filters/StoryFilter';
 import { StoryEnhancements } from './Controls/StoryEnhancements';
@@ -536,12 +537,15 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
     const files = Array.from(e.target.files || []);
     
     files.forEach(file => {
-      const fileType = file.type;
+      // Add type assertion for the file to ensure TypeScript recognizes its properties
+      const typedFile = file as File;
+      const fileType = typedFile.type;
       const isVideo = fileType.startsWith('video/');
       const isImage = fileType.startsWith('image/');
       
       if (isVideo || isImage) {
-        const url = URL.createObjectURL(file);
+        // Add type assertion for createObjectURL parameter
+        const url = URL.createObjectURL(typedFile as Blob);
         setMediaItems(prev => [...prev, {
           type: isVideo ? 'video' : 'image',
           url
