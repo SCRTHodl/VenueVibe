@@ -154,12 +154,22 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
       const setupCamera = async () => {
         console.log('[StoryModal] setupCamera called');
         // Skip if document is hidden
-        if (document.hidden) return;
-        
-        // Skip if camera is already initialized for this session
-        if (stream && videoRef.current?.srcObject) {
-          console.log('[StoryModal] Camera already initialized and connected to video element');
+        if (document.hidden) {
+          setCameraStatus('Waiting for application to become visible...');
           return;
+        }
+        
+        // More robust check for already initialized camera with active tracks
+        if (stream && videoRef.current?.srcObject === stream && 
+            stream.active && stream.getVideoTracks().some(track => track.readyState === 'live')) {
+          console.log('[StoryModal] Camera already properly initialized and connected to video element');
+          setCameraStatus(null);
+          return;
+        }
+        
+        // Reset video element if it has a stale stream
+        if (videoRef.current && videoRef.current.srcObject) {
+          videoRef.current.srcObject = null;
         }
         
         console.log('[StoryModal] Initializing camera with improved useCamera hook');
@@ -183,61 +193,88 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
           if (videoRef.current && mountedRef.current) {
             console.log('[StoryModal] Setting up video element with camera stream');
             
-            // Configure video element
+            // Configure video element with enhanced attributes for better mobile compatibility
             videoRef.current.srcObject = mediaStream;
-            videoRef.current.setAttribute('playsinline', 'true');
+            videoRef.current.setAttribute('playsinline', 'true'); // Essential for iOS inline playback
+            videoRef.current.setAttribute('autoplay', 'true'); // Help browsers understand we want autoplay
             videoRef.current.muted = true;
+            videoRef.current.playsInline = true; // Double ensure inline playback
             
-            // Start playback
             try {
-              // Auto-play can be finicky on mobile, use a more reliable approach
-              const playPromise = videoRef.current.play();
-              
-              // Modern browsers return a promise from play()
-              if (playPromise !== undefined) {
-                playPromise.then(() => {
-                  console.log('[StoryModal] Video playback started successfully');
-                  wasInitializedRef.current = true;
-                  setCameraStatus(null);
-                }).catch(err => {
-                  console.error('[StoryModal] Error playing video:', err);
+              // Add a small delay before play to help certain devices (especially iOS)
+              setTimeout(() => {
+                if (!mountedRef.current || !videoRef.current) return;
+                
+                // Start playback with improved reliability
+                try {
+                  // Auto-play can be finicky on mobile, use a more reliable approach
+                  const playPromise = videoRef.current.play();
                   
-                  // For any error, try once more after a short delay
-                  setCameraStatus('Preparing camera...');
-                  setTimeout(() => {
-                    if (mountedRef.current && videoRef.current) {
-                      videoRef.current.play()
-                        .then(() => {
-                          console.log('[StoryModal] Video playback started on retry');
-                          setCameraStatus(null);
-                        })
-                        .catch(e => {
-                          console.warn('[StoryModal] Final playback attempt failed:', e);
-                          if (mountedRef.current) {
-                            setCameraStatus('Camera preview not available. Try refreshing or use upload mode.');
-                          }
-                        });
-                    }
-                  }, 800);
-                });
-              } else {
-                // Older browsers don't return a promise
-                console.log('[StoryModal] Video playback requested (legacy)');
-                setCameraStatus(null);
-              }
-            } catch (innerErr) {
-              console.error('[StoryModal] Error during video playback setup:', innerErr);
+                  // Modern browsers return a promise from play()
+                  if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                      console.log('[StoryModal] Video playback started successfully');
+                      wasInitializedRef.current = true;
+                      setCameraStatus(null);
+                    }).catch(err => {
+                      console.error('[StoryModal] Error playing video:', err);
+                      
+                      // For any error, try once more after a short delay
+                      setCameraStatus('Preparing camera...');
+                      setTimeout(() => {
+                        if (mountedRef.current && videoRef.current) {
+                          videoRef.current.play()
+                            .then(() => {
+                              console.log('[StoryModal] Video playback started on retry');
+                              setCameraStatus(null);
+                            })
+                            .catch(e => {
+                              console.warn('[StoryModal] Final playback attempt failed:', e);
+                              if (mountedRef.current) {
+                                setCameraStatus('Camera preview not available. Try refreshing or use upload mode.');
+                              }
+                            });
+                        }
+                      }, 800);
+                    });
+                  } else {
+                    // Older browsers don't return a promise
+                    console.log('[StoryModal] Video playback requested (legacy)');
+                    setCameraStatus(null);
+                  }
+                } catch (innerErr) {
+                  console.error('[StoryModal] Error during video playback setup:', innerErr);
+                  if (mountedRef.current) {
+                    setCameraStatus('Video playback failed. Please try again.');
+                  }
+                }
+              }, 300);
+            } catch (videoSetupErr) {
+              console.error('[StoryModal] Error during video setup:', videoSetupErr);
               if (mountedRef.current) {
-                setCameraStatus('Video playback failed. Please try again.');
+                setCameraStatus('Video setup failed. Please try again.');
               }
             }
           }
         } catch (err) {
           console.error('[StoryModal] Camera initialization error:', err);
           if (mountedRef.current) {
-            setCameraStatus('Camera access denied or not available. Please check permissions.');
+            // Provide more specific error messages based on the error type
+            const errorMsg = String(err).toLowerCase();
+            if (errorMsg.includes('permission') || errorMsg.includes('denied')) {
+              setCameraStatus('Camera access denied. Please check browser permissions.');
+            } else if (errorMsg.includes('not found') || errorMsg.includes('overconstrained')) {
+              setCameraStatus('No camera matching requirements found. Try a different camera mode.');
+            } else if (errorMsg.includes('not available') || errorMsg.includes('in use')) {
+              setCameraStatus('Camera not available or in use by another application.');
+            } else {
+              setCameraStatus('Camera error. Try refreshing or using upload mode instead.');
+            }
+            
+            // Automatically switch to upload mode after a delay
             setTimeout(() => {
               if (mountedRef.current) {
+                console.log('[StoryModal] Auto-switching to upload mode after camera error');
                 setActiveTab('upload');
               }
             }, 3000);

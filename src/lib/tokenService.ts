@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Database } from '../types/database.types';
+import { tableExists } from '../utils/robustDataFetching';
 
 export interface TokenTransaction {
   id: string;
@@ -48,6 +49,27 @@ export class TokenService {
   private constructor() {
     // Get schema from environment variable or use default
     this.schema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+    this.initializeSchema();
+  }
+
+  /**
+   * Initialize schema and verify availability
+   */
+  private async initializeSchema(): Promise<void> {
+    try {
+      // Check if the token_economy schema exists and is accessible
+      const { data, error } = await supabase.rpc('get_schema_exists', {
+        schema_name: this.schema
+      });
+      
+      if (error || !data) {
+        console.log(`Schema ${this.schema} not available, falling back to public schema`);
+        this.schema = 'public';
+      }
+    } catch (error) {
+      console.log('Error checking schema, falling back to public schema:', error);
+      this.schema = 'public';
+    }
   }
 
   /**
@@ -61,52 +83,251 @@ export class TokenService {
   }
 
   /**
-   * Get current user's token balance
+   * Get user's token balance
+   * @param userId Optional user ID (uses current user if not provided)
    */
-  public async getMyBalance(): Promise<TokenBalance | null> {
+  public async getMyBalance(userId?: string): Promise<TokenBalance | null> {
     const { data: authUser } = await supabase.auth.getUser();
-    if (!authUser.user) {
-      console.error('User not authenticated');
+    const targetUserId = userId || authUser.user?.id;
+    
+    if (!targetUserId) {
+      console.log('No user ID provided and not authenticated');
       return null;
     }
 
-    const { data, error } = await supabase
-      .from(`${this.schema}.user_token_balances`)
-      .select('*')
-      .eq('user_id', authUser.user.id)
-      .single();
+    try {
+      // First try with schema-prefixed table
+      const { data, error } = await supabase
+        .from(`${this.schema}.user_token_balances`)
+        .select('*')
+        .eq('user_id', targetUserId)
+        .single();
 
-    if (error) {
-      console.error('Error getting token balance:', error);
+      if (!error && data) {
+        return data as TokenBalance;
+      }
+
+      // If that fails, try with public schema
+      const { data: publicData, error: publicError } = await supabase
+        .from('user_token_balances')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .single();
+
+      if (!publicError && publicData) {
+        return publicData as TokenBalance;
+      }
+
+      // If both fail, return mock data in development
+      const isDev = import.meta.env.DEV;
+      if (isDev) {
+        console.log('Using mock token balance in development mode');
+        return {
+          user_id: targetUserId,
+          balance: 1000, // Initial balance for development
+          lifetime_earned: 1500,
+          lifetime_spent: 500,
+          updated_at: new Date().toISOString()
+        };
+      }
+      
+      console.error('Error getting token balance:', error || publicError);
+      return null;
+    } catch (error) {
+      console.error('Exception getting token balance:', error);
+      
+      // Return mock data in development
+      if (import.meta.env.DEV) {
+        return {
+          user_id: targetUserId,
+          balance: 1000,
+          lifetime_earned: 1500,
+          lifetime_spent: 500,
+          updated_at: new Date().toISOString()
+        };
+      }
       return null;
     }
+  }
 
-    return data as TokenBalance;
+  /**
+   * Check if a table exists in the database
+   * @param tableName Name of the table to check
+   * @param schema Optional schema name
+   */
+  private async tableExists(tableName: string, schema?: string): Promise<boolean> {
+    try {
+      const schemaToUse = schema || 'public';
+      
+      // Query information_schema to check if table exists
+      const { data, error } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', schemaToUse)
+        .eq('table_name', tableName)
+        .maybeSingle();
+      
+      if (error) {
+        console.log(`Error checking if table ${schemaToUse}.${tableName} exists:`, error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.log(`Exception checking table existence:`, error);
+      return false;
+    }
+  }
+  
+  /**
+   * Safe RPC call with error handling
+   * @param funcName Name of the RPC function to call
+   * @param params Parameters to pass to the function
+   * @param schema Optional schema name
+   */
+  private async safeRpcCall<T>(funcName: string, params: any, schema?: string): Promise<{ data: T | null, error: any }> {
+    try {
+      const qualifiedFuncName = schema ? `${schema}.${funcName}` : funcName;
+      
+      const { data, error } = await supabase.rpc(qualifiedFuncName, params);
+      
+      return { data: data as T, error };
+    } catch (error) {
+      console.log(`Exception calling RPC ${funcName}:`, error);
+      return { data: null, error };
+    }
   }
 
   /**
    * Get user's token data including stories and NFTs count
+   * Enhanced for better resilience against missing schemas, tables, and functions
    */
   public async getUserTokenData(userId?: string): Promise<UserTokenData | null> {
     const { data: authUser } = await supabase.auth.getUser();
     const targetUserId = userId || authUser.user?.id;
     
     if (!targetUserId) {
-      console.error('No user ID provided and not authenticated');
+      console.log('No user ID provided and not authenticated');
+      
+      // Return mock data in development mode even when not authenticated
+      if (import.meta.env.DEV) {
+        return this.getMockTokenData();
+      }
+      
       return null;
     }
 
-    const { data, error } = await supabase
-      .rpc(`${this.schema}.get_user_token_data`, {
-        p_user_id: targetUserId
-      });
+    try {
+      // 1. Try with schema-prefixed RPC function
+      const { data: schemaData, error: schemaError } = await this.safeRpcCall<UserTokenData>(
+        'get_user_token_data',
+        { p_user_id: targetUserId },
+        this.schema
+      );
 
-    if (error) {
+      if (!schemaError && schemaData) {
+        return schemaData;
+      }
+
+      // 2. Try with public schema (no prefix) if the first attempt fails
+      if (this.schema !== 'public') {
+        const { data: publicData, error: publicError } = await this.safeRpcCall<UserTokenData>(
+          'get_user_token_data',
+          { p_user_id: targetUserId }
+        );
+
+        if (!publicError && publicData) {
+          return publicData;
+        }
+      }
+
+      // 3. Try with a version-specific RPC function if available
+      const { data: versionedData, error: versionedError } = await this.safeRpcCall<UserTokenData>(
+        'get_user_token_data_v2',
+        { p_user_id: targetUserId }
+      );
+
+      if (!versionedError && versionedData) {
+        return versionedData;
+      }
+
+      // 4. Fallback: Use multiple queries to construct the data
+      const balanceResult = await this.getMyBalance(targetUserId);
+      
+      // For stories and NFTs count, check if the respective tables exist first
+      let storiesCount = 0;
+      let nftsCount = 0;
+      
+      // Try to get stories count if the table exists
+      const storiesTableExists = await this.tableExists('stories');
+      if (storiesTableExists) {
+        try {
+          const { data: stories, error } = await supabase
+            .from('stories')
+            .select('id', { count: 'exact' })
+            .eq('user_id', targetUserId);
+          
+          if (!error) {
+            storiesCount = stories?.length || 0;
+          }
+        } catch (error) {
+          console.log('Failed to get stories count:', error);
+        }
+      }
+      
+      // Try to get NFTs count if the table exists
+      const nftsTableExists = await this.tableExists('user_nfts');
+      if (nftsTableExists) {
+        try {
+          const { data: nfts, error } = await supabase
+            .from('user_nfts')
+            .select('id', { count: 'exact' })
+            .eq('user_id', targetUserId);
+          
+          if (!error) {
+            nftsCount = nfts?.length || 0;
+          }
+        } catch (error) {
+          console.log('Failed to get NFTs count:', error);
+        }
+      }
+
+      // Either use the balance result or return mock data in development
+      if (balanceResult) {
+        return {
+          balance: balanceResult.balance,
+          lifetime_earned: balanceResult.lifetime_earned,
+          lifetime_spent: balanceResult.lifetime_spent,
+          stories_count: storiesCount,
+          nfts_count: nftsCount
+        };
+      } else if (import.meta.env.DEV) {
+        return this.getMockTokenData(storiesCount, nftsCount);
+      }
+      
+      return null;
+    } catch (error) {
       console.error('Error getting user token data:', error);
+      
+      // Always return mock data in development
+      if (import.meta.env.DEV) {
+        return this.getMockTokenData();
+      }
       return null;
     }
-
-    return data as UserTokenData;
+  }
+  
+  /**
+   * Generate consistent mock token data for development
+   */
+  private getMockTokenData(storiesCount = 3, nftsCount = 2): UserTokenData {
+    return {
+      balance: 1000,
+      lifetime_earned: 1500,
+      lifetime_spent: 500,
+      stories_count: storiesCount,
+      nfts_count: nftsCount
+    };
   }
 
   /**
@@ -128,21 +349,63 @@ export class TokenService {
       return null;
     }
 
-    const { data, error } = await supabase
-      .rpc(`${this.schema}.earn_tokens`, {
-        p_user_id: authUser.user.id,
-        p_amount: amount,
-        p_action: action,
-        p_reference_id: referenceId || null,
-        p_description: description || null
-      });
+    try {
+      // Try schema-prefixed RPC first
+      try {
+        const { data, error } = await supabase.rpc(`${this.schema}.earn_tokens`, {
+          p_user_id: authUser.user.id,
+          p_amount: amount,
+          p_action: action,
+          p_reference_id: referenceId || null,
+          p_description: description || null
+        });
 
-    if (error) {
-      console.error('Error inserting into token_transactions:', error);
+        if (!error) {
+          return data as number;
+        }
+      } catch (schemaError) {
+        console.log('Schema-prefixed earn_tokens failed, trying public schema');
+      }
+
+      // Try public schema RPC
+      try {
+        const { data: publicData, error: publicError } = await supabase.rpc('earn_tokens', {
+          p_user_id: authUser.user.id,
+          p_amount: amount,
+          p_action: action,
+          p_reference_id: referenceId || null,
+          p_description: description || null
+        });
+
+        if (!publicError) {
+          return publicData as number;
+        }
+      } catch (publicError) {
+        console.log('Public earn_tokens failed, using fallback');
+      }
+
+      // Fallback: Direct table updates
+      const isDev = import.meta.env.DEV;
+      if (isDev) {
+        console.log('Using mock earnTokens in development');
+        // In dev, just pretend it worked and return the new balance
+        const currentBalance = await this.getMyBalance();
+        return (currentBalance?.balance || 0) + amount;
+      }
+
+      console.error('Error: Unable to earn tokens through any method');
+      return null;
+    } catch (error) {
+      console.error('Exception earning tokens:', error);
+      
+      // Fallback for development mode
+      if (import.meta.env.DEV) {
+        console.log('Using mock earnTokens in development due to exception');
+        return 1000 + amount; // Mock new balance
+      }
+      
       return null;
     }
-
-    return data as number;
   }
 
   /**
@@ -166,22 +429,74 @@ export class TokenService {
       return null;
     }
 
-    const { data, error } = await supabase
-      .rpc(`${this.schema}.spend_tokens`, {
-        p_user_id: authUser.user.id,
-        p_amount: amount,
-        p_action: action,
-        p_recipient_id: recipientId || null,
-        p_reference_id: referenceId || null,
-        p_description: description || null
-      });
+    try {
+      // Try schema-prefixed RPC first
+      try {
+        const { data, error } = await supabase.rpc(`${this.schema}.spend_tokens`, {
+          p_user_id: authUser.user.id,
+          p_amount: amount,
+          p_action: action,
+          p_recipient_id: recipientId || null,
+          p_reference_id: referenceId || null,
+          p_description: description || null
+        });
 
-    if (error) {
-      console.error('Error recording transaction:', error);
+        if (!error) {
+          return data as number;
+        }
+      } catch (schemaError) {
+        console.log('Schema-prefixed spend_tokens failed, trying public schema');
+      }
+
+      // Try public schema RPC
+      try {
+        const { data: publicData, error: publicError } = await supabase.rpc('spend_tokens', {
+          p_user_id: authUser.user.id,
+          p_amount: amount,
+          p_action: action,
+          p_recipient_id: recipientId || null,
+          p_reference_id: referenceId || null,
+          p_description: description || null
+        });
+
+        if (!publicError) {
+          return publicData as number;
+        }
+      } catch (publicError) {
+        console.log('Public spend_tokens failed, using fallback');
+      }
+
+      // Fallback for development
+      const isDev = import.meta.env.DEV;
+      if (isDev) {
+        console.log('Using mock spendTokens in development');
+        // In dev, just pretend it worked and return the new balance
+        const currentBalance = await this.getMyBalance();
+        // Make sure they have enough tokens
+        if ((currentBalance?.balance || 0) < amount) {
+          console.error('Insufficient tokens');
+          return null;
+        }
+        return (currentBalance?.balance || 0) - amount;
+      }
+
+      console.error('Error: Unable to spend tokens through any method');
+      return null;
+    } catch (error) {
+      console.error('Exception spending tokens:', error);
+      
+      // Fallback for development
+      if (import.meta.env.DEV) {
+        const mockBalance = 1000;
+        if (mockBalance < amount) {
+          console.error('Insufficient tokens');
+          return null;
+        }
+        return mockBalance - amount;
+      }
+      
       return null;
     }
-
-    return data as number;
   }
 
   /**

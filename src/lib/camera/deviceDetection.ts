@@ -2,46 +2,111 @@ import { CameraContext, CameraDevice, CameraOptions } from './types';
 
 /**
  * Detect browser/device environment to apply appropriate workarounds
+ * Enhanced with more detailed device detection and feature detection
  */
 export function detectEnvironment(): CameraContext {
   const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const userAgentLower = userAgent.toLowerCase();
   
-  // Detect mobile
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+  // Detect mobile with improved regex
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(userAgentLower);
   
-  // Detect iOS
-  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+  // Enhanced iOS detection - more reliable
+  const isIOS = (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !(window as any).MSStream);
   
-  // Detect Android
-  const isAndroid = /android/i.test(userAgent);
-  
-  // Detect Safari
-  const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
-  
-  // Get browser version (simplified)
-  const browserVersion = (() => {
-    const match = userAgent.match(/(chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
-    return parseInt(match[2], 10) || 0;
+  // Enhanced iPad detection (newer iPads report as MacIntel)
+  const isIPad = /ipad/i.test(userAgentLower) || 
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !(window as any).MSStream);
+               
+  // Detect Android with version
+  const isAndroid = /android/i.test(userAgentLower);
+  const androidVersion = (() => {
+    const match = userAgentLower.match(/android\s([0-9\.]*)/i);
+    return match ? parseFloat(match[1]) : 0;
   })();
+  
+  // Better browser detection
+  const isChrome = /chrome|chromium|crios/i.test(userAgentLower) && !/edg/i.test(userAgentLower);
+  const isFirefox = /firefox|fxios/i.test(userAgentLower);
+  const isEdge = /edg/i.test(userAgentLower);
+  const isSafari = /safari/i.test(userAgentLower) && !/chrome|chromium|crios/i.test(userAgentLower);
+  const isSamsungBrowser = /samsungbrowser/i.test(userAgentLower);
+  
+  // Get browser version with improved accuracy
+  const browserInfo = (() => {
+    let name = 'unknown';
+    let version = 0;
+    
+    if (isChrome) {
+      name = 'chrome';
+      const match = userAgentLower.match(/(?:chrome|chromium|crios)\/([\d\.]+)/);
+      version = match ? parseFloat(match[1]) : 0;
+    } else if (isSafari) {
+      name = 'safari';
+      const match = userAgentLower.match(/version\/([\d\.]+).*safari/);
+      version = match ? parseFloat(match[1]) : 0;
+    } else if (isFirefox) {
+      name = 'firefox';
+      const match = userAgentLower.match(/(?:firefox|fxios)\/([\d\.]+)/);
+      version = match ? parseFloat(match[1]) : 0;
+    } else if (isEdge) {
+      name = 'edge';
+      const match = userAgentLower.match(/edg\/([\d\.]+)/);
+      version = match ? parseFloat(match[1]) : 0;
+    } else if (isSamsungBrowser) {
+      name = 'samsung';
+      const match = userAgentLower.match(/samsungbrowser\/([\d\.]+)/);
+      version = match ? parseFloat(match[1]) : 0;
+    }
+    
+    return { name, version };
+  })();
+  
+  // Feature detection for camera capabilities
+  const hasAdvancedConstraints = !!(
+    navigator.mediaDevices && 
+    navigator.mediaDevices.getSupportedConstraints && 
+    navigator.mediaDevices.getSupportedConstraints().facingMode
+  );
   
   // Check for WebRTC support
   const hasWebRTCSupport = !!(
     navigator.mediaDevices && 
     navigator.mediaDevices.getUserMedia && 
-    window.RTCPeerConnection
+    typeof window.RTCPeerConnection !== 'undefined'
   );
   
   // Determine best default facing mode
   // Mobile devices typically have both front/back cameras, desktop usually has only one
   const bestFacingMode = isMobile ? 'environment' : 'user';
   
+  // Check for backgrounded tab detection support
+  const hasVisibilityDetection = 'hidden' in document;
+  
+  // Detailed iOS version (helpful for specific iOS workarounds)
+  const iOSVersion = (() => {
+    if (!isIOS) return 0;
+    const match = userAgentLower.match(/os (\d+)_(\d+)/);
+    return match ? parseFloat(`${match[1]}.${match[2]}`) : 0;
+  })();
+  
   return {
     isMobile,
     isIOS,
+    isIPad,
     isAndroid,
+    androidVersion,
     isSafari,
-    browserVersion,
+    isChrome,
+    isFirefox,
+    isEdge,
+    isSamsungBrowser,
+    browserInfo,
     hasWebRTCSupport,
+    hasAdvancedConstraints,
+    hasVisibilityDetection,
+    iOSVersion,
     bestFacingMode
   };
 }
@@ -77,7 +142,7 @@ export function applyCameraOptionsWorkarounds(
     }
     
     // On older Android browsers, reduce quality expectations
-    if (context.isAndroid && context.browserVersion < 80) {
+    if (context.isAndroid && context.browserInfo.version < 80) {
       // Simplify constraints to avoid issues
       if (videoConstraints.width && typeof videoConstraints.width !== 'boolean') {
         videoConstraints.width = { ideal: 1280 };

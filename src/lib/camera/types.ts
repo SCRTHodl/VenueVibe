@@ -73,12 +73,33 @@ export interface StreamRequest {
  * Camera operating context
  */
 export interface CameraContext {
+  // Device type
   isMobile: boolean;
   isIOS: boolean;
+  isIPad: boolean;
   isAndroid: boolean;
-  isSafari: boolean; 
-  browserVersion: number;
+  androidVersion: number;
+  iOSVersion: number;
+  
+  // Browser detection
+  isSafari: boolean;
+  isChrome: boolean;
+  isFirefox: boolean;
+  isEdge: boolean;
+  isSamsungBrowser: boolean;
+  
+  // Browser version info
+  browserInfo: {
+    name: string;
+    version: number;
+  };
+  
+  // Feature detection
   hasWebRTCSupport: boolean;
+  hasAdvancedConstraints: boolean;
+  hasVisibilityDetection: boolean;
+  
+  // Camera preferences
   bestFacingMode: 'user' | 'environment';
 }
 

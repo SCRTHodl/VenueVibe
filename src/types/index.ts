@@ -17,45 +17,83 @@ export interface Rating {
   badges?: string[];
 }
 
-// UserStory interface that's compatible with both implementations
+// UserStory interface that's comprehensive with all necessary properties
 export interface UserStory {
+  // Basic story identification and user info
   id: string;
   userId: string;
   userName: string;
   userAvatar: string;
-  // Media can be a string (types.ts) or an array of objects (types/index.ts)
+  
+  // Media content - can be a string URL or an array of media objects
   media: string | {
     type: 'image' | 'video';
     url: string;
+    width?: number;
+    height?: number;
+    duration?: number;
   }[];
-  // Required fields from types.ts
-  timestamp: string;
-  viewed: boolean;
-  // Optional fields used in the StoryModal component
-  caption?: string;
+  
+  // Story content and metadata
+  caption: string;
   location?: string;
   music?: string;
+  tags?: string[];
+  filter: string;
+  timestamp: string;
+  createdAt: string;
+  expiresAt: string;
+  updatedAt?: string;
+  
+  // Interactive elements
   stickers?: {
     id: string;
     emoji: string;
     x: number;
     y: number;
+    scale?: number;
+    rotation?: number;
   }[];
-  // Other important fields for story functionality
-  filter?: string;
-  createdAt: string;
-  expiresAt: string;
+  
+  // Engagement metrics
+  viewed: boolean;
   viewCount: number;
   viewedBy: string[];
-  tokenBalance?: number;
-  gifts?: Array<{
-    type: string;
-    from: string;
-    timestamp: string;
-  }>;
-  moderationStatus?: 'approved' | 'pending' | 'rejected';
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  
+  // Premium and token related properties
   isPremium?: boolean;
   unlockCost?: number;
+  tokenBalance?: number;
+  isMonetized?: boolean;
+  monetizationStatus?: 'enabled' | 'disabled' | 'pending';
+  
+  // Moderation and visibility
+  moderationStatus?: 'approved' | 'pending' | 'rejected';
+  visibility?: 'public' | 'followers' | 'private';
+  
+  // Gifts and interactions
+  gifts?: Array<{
+    id?: string;
+    type: string;
+    from: string;
+    amount?: number;
+    timestamp: string;
+  }>;
+  
+  // Additional context and metadata
+  comment?: {
+    text?: string;
+    media?: string;
+  };
+  analytics?: {
+    impressions?: number;
+    engagement?: number;
+    completionRate?: number;
+    averageWatchTime?: number;
+  };
 }
 
 // Content moderation result type

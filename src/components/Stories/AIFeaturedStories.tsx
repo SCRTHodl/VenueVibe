@@ -22,13 +22,42 @@ export const AIFeaturedStories: React.FC<AIFeaturedStoriesProps> = ({
     const loadFeaturedStories = async () => {
       setLoading(true);
       try {
-        // Get AI-featured stories with story data
+        // First check if we can get featured stories with proper sorting
+        // Using a try-catch approach to handle potential schema differences
+        try {
+          // Try to get AI-featured stories with priority sorting
+          const { data: priorityData, error: priorityError } = await supabase
+            .from('featured_content')
+            .select(`
+              id,
+              content_id,
+              priority,
+              ai_generated,
+              ai_insights,
+              metadata,
+              stories:content_id(*)
+            `)
+            .eq('content_type', 'stories')
+            .eq('active', true)
+            .order('priority', { ascending: false })
+            .limit(6);
+            
+          // If successful, use this data
+          if (!priorityError && priorityData) {
+            // Process and return the data with priority
+            handleFeaturedData(priorityData);
+            return;
+          }
+        } catch (priorityError) {
+          console.log('Priority field not available, using fallback query');
+        }
+        
+        // Fallback: Get featured stories without priority sorting
         const { data, error } = await supabase
           .from('featured_content')
           .select(`
             id,
             content_id,
-            priority,
             ai_generated,
             ai_insights,
             metadata,
@@ -36,29 +65,41 @@ export const AIFeaturedStories: React.FC<AIFeaturedStoriesProps> = ({
           `)
           .eq('content_type', 'stories')
           .eq('active', true)
-          .order('priority', { ascending: false })
           .limit(6);
           
         if (error) throw error;
         
+        // Process data if available
         if (data?.length) {
-          // Extract story data and add featured info
-          const featuredStories = data
-            .filter(item => item.stories) // Filter out any invalid relations
-            .map(item => ({
-              ...item.stories,
-              featuredId: item.id,
-              aiInsights: item.ai_insights,
-              aiGenerated: item.ai_generated
-            }));
-            
-          setStories(featuredStories);
-          
-          // Update impression metrics for these stories
-          for (const story of featuredStories) {
-            updateContentMetrics(story.id, 'stories', 'impression');
-          }
+          handleFeaturedData(data);
         }
+    };
+    
+    // Process featured content data into story format
+    const handleFeaturedData = (data: any[]) => {
+      if (!data?.length) return;
+      
+      try {
+        // Extract story data and add featured info
+        const featuredStories = data
+          .filter(item => item.stories) // Filter out any invalid relations
+          .map(item => ({
+            ...item.stories,
+            featuredId: item.id,
+            aiInsights: item.ai_insights,
+            aiGenerated: item.ai_generated
+          }));
+          
+        setStories(featuredStories);
+        
+        // Update impression metrics for these stories
+        for (const story of featuredStories) {
+          updateContentMetrics(story.id, 'stories', 'impression');
+        }
+      } catch (err) {
+        console.error('Error processing featured stories data:', err);
+        setError('Failed to process featured stories');
+      }
       } catch (err) {
         console.error('Error loading featured stories:', err);
         setError('Failed to load featured stories');

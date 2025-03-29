@@ -8,6 +8,7 @@ import { ItemDetails } from './ItemDetails';
 import { ContentRewards } from './ContentRewards';
 import { Leaderboard } from '../Leaderboard/Leaderboard';
 import { supabase } from '../../lib/supabase';
+import { fetchWithFallback, tableExists } from '../../utils/robustDataFetching';
 
 // Digital item type matching the database schema
 export interface DigitalItem {
@@ -67,35 +68,67 @@ export const TokenStore: React.FC<TokenStoreProps> = ({ onClose }) => {
     }
   }, [isInitialized, initializeWallet]);
 
-  // Fetch items from database
+  // Sample items as a fallback for development
+  const SAMPLE_ITEMS: DigitalItem[] = [
+    {
+      id: 'spring-training-2025',
+      name: 'Spring Training 2025 Badge',
+      description: 'Limited-edition badge for the 2025 Spring Training season',
+      image_url: 'https://images.unsplash.com/photo-1610216705422-caa3fcb6d158?ixlib=rb-4.0.3',
+      price: 500,
+      item_type: 'badge',
+      rarity: 'legendary',
+      supply: 100,
+      remaining: 20,
+      transferable: false,
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'live-events-theme',
+      name: 'Live Events Theme Pack',
+      description: 'Custom interface theme for live events that includes lighting effects',
+      image_url: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?ixlib=rb-4.0.3',
+      price: 350,
+      item_type: 'theme',
+      rarity: 'rare',
+      transferable: true,
+      created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  ];
+
+  // Fetch items from database using our robust utility
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchDigitalItems = async () => {
       setIsLoading(true);
       try {
-        // Use the tokenEconomySchema from environment variables
+        // First check if the required table exists
         const tokenEconomySchema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
+        const tableExistsResult = await tableExists(`${tokenEconomySchema}.digital_items`);
         
-        // Properly access the token_economy schema
-        const { data, error } = await supabase
-          .schema(tokenEconomySchema)
-          .from('digital_items')
-          .select('*');
+        if (tableExistsResult) {
+          // Use the robust data fetching utility with fallback options
+          const items = await fetchWithFallback<DigitalItem>(
+            `${tokenEconomySchema}.digital_items`,
+            '*',             // Primary query (all fields)
+            'id, name, description, image_url, price, item_type, rarity, transferable, created_at', // Fallback with essential fields
+            SAMPLE_ITEMS     // Mock data as final fallback
+          );
           
-        if (error) throw error;
-        
-        if (data) {
-          setItems(data as DigitalItem[]);
+          setItems(items);
+        } else {
+          // Table doesn't exist, use sample data
+          console.log('Digital items table not found, using sample data');
+          setItems(SAMPLE_ITEMS);
         }
       } catch (error) {
-        console.error('Error fetching items:', error);
-        // Fallback to sample items if table doesn't exist yet
+        console.error('Error fetching digital items:', error);
         setItems(SAMPLE_ITEMS);
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchItems();
+    fetchDigitalItems();
   }, []);
 
   // Filter items based on category and search

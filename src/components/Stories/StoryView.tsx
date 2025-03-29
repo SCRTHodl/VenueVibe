@@ -20,7 +20,7 @@ interface StoryViewProps {
 
 export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
   // Validate story data
-  if (!story?.media?.length) {
+  if (!story?.media || (Array.isArray(story.media) && !story.media.length) || (typeof story.media === 'string' && !story.media)) {
     console.error('Invalid story data:', story);
     return null;
   }
@@ -30,7 +30,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(story.viewCount || 0);
+  const [likeCount, setLikeCount] = useState(story.viewCount !== undefined ? story.viewCount : 0);
   const [comments, setComments] = useState<string[]>([]);
   const [commentInput, setCommentInput] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -45,9 +45,15 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
 
   // Handle story playback
   useEffect(() => {
-    if (!story.media[currentSlide] || isPaused) return;
+    if (isPaused) return;
     
-    const storyDuration = story.media[currentSlide].type === 'video' ? 15000 : 5000;
+    // Handle both string media and array media cases
+    const mediaItem = Array.isArray(story.media) ? story.media[currentSlide] : null;
+    if (Array.isArray(story.media) && !mediaItem) return;
+    
+    // Set duration based on media type (5 seconds for images, 15 for videos)
+    const mediaType = Array.isArray(story.media) && mediaItem ? mediaItem.type : 'image';
+    const storyDuration = mediaType === 'video' ? 15000 : 5000;
     
     const interval = setInterval(() => {
       setProgress(prev => {
@@ -57,7 +63,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
     }, 100);
     
     const timeout = setTimeout(() => {
-      if (currentSlide < story.media.length - 1) {
+      if (Array.isArray(story.media) && currentSlide < story.media.length - 1) {
         setCurrentSlide(prev => prev + 1);
         setProgress(0);
       } else {
@@ -152,62 +158,117 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
     recordView();
   }, [story.id, story.viewedBy, earnTokens, userId, isContentLocked]);
 
+  // Helper function for robust RPC calls with fallbacks
+  const callStoryInteraction = async (storyId: string, interactionType: string, content?: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || 'anonymous';
+    
+    try {
+      // First try with handle_story_interaction_v3
+      try {
+        const { data, error } = await supabase.rpc('handle_story_interaction_v3', {
+          p_story_id: storyId,
+          p_user_id: userId,
+          p_interaction_type: interactionType,
+          p_content: content || null
+        });
+        
+        if (!error) {
+          return { success: true, data };
+        }
+      } catch (error) {
+        console.log('handle_story_interaction_v3 failed, trying v2 version');
+      }
+      
+      // Try with handle_story_interaction_v2 if v3 fails
+      try {
+        const { data, error } = await supabase.rpc('handle_story_interaction_v2', {
+          p_story_id: storyId,
+          p_user_id: userId,
+          p_interaction_type: interactionType,
+          p_content: content || null
+        });
+        
+        if (!error) {
+          return { success: true, data };
+        }
+      } catch (error) {
+        console.log('handle_story_interaction_v2 failed, trying original version');
+      }
+      
+      // Try with the original handle_story_interaction if v2 fails
+      try {
+        const { data, error } = await supabase.rpc('handle_story_interaction', {
+          p_story_id: storyId,
+          p_user_id: userId,
+          p_interaction_type: interactionType,
+          p_content: content || null
+        });
+        
+        if (!error) {
+          return { success: true, data };
+        }
+      } catch (error) {
+        console.log('All RPC methods failed, using fallback for development');
+      }
+      
+      // If in development, mock the functionality
+      if (import.meta.env.DEV) {
+        console.log(`Development mode: Mocking ${interactionType} interaction for story ${storyId}`);
+        return { success: true, data: { interaction_id: crypto.randomUUID() } };
+      }
+      
+      return { success: false, error: 'All interaction methods failed' };
+    } catch (error) {
+      console.error(`Error processing ${interactionType} interaction:`, error);
+      
+      // Mock success in development mode
+      if (import.meta.env.DEV) {
+        return { success: true, data: { interaction_id: crypto.randomUUID() } };
+      }
+      
+      return { success: false, error };
+    }
+  };
+
   const handleLike = async () => {
     if (isLiked) return;
     
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Ensure we have a valid UUID
-      const storyId = story.id.includes('-') ? story.id : crypto.randomUUID();
+    // Ensure we have a valid UUID
+    const storyId = story.id.includes('-') ? story.id : crypto.randomUUID();
+    
+    const result = await callStoryInteraction(storyId, 'like');
+    
+    if (result.success) {
+      setIsLiked(true);
+      setLikeCount((prev: number) => prev + 1);
 
-      const { data, error } = await supabase.rpc('handle_story_interaction_v3', {
-        p_story_id: storyId,
-        p_user_id: session?.user?.id || 'anonymous',
-        p_interaction_type: 'like'
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        setIsLiked(true);
-        setLikeCount(prev => prev + 1);
-
-        // Reward story creator
-        await earnTokens(2, 'Story received a like', storyId);
-      }
-    } catch (error) {
-      console.error('Error liking story:', error);
+      // Reward story creator
+      await earnTokens(2, 'Story received a like', storyId);
     }
   };
 
   const handleComment = async () => {
     if (!commentInput.trim()) return;
     
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Ensure we have a valid UUID
-      const storyId = story.id.includes('-') ? story.id : crypto.randomUUID();
+    // Ensure we have a valid UUID
+    const storyId = story.id.includes('-') ? story.id : crypto.randomUUID();
+    
+    // Get the current session for user info
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Use our robust interaction handler
+    const result = await callStoryInteraction(storyId, 'comment', commentInput);
+    
+    if (result.success) {
+      // Add the comment locally for immediate UI update
+      setComments((prev: string[]) => [...prev, commentInput]);
+      setCommentInput('');
 
-      const { data, error } = await supabase.rpc('handle_story_interaction_v3', {
-        p_story_id: storyId,
-        p_user_id: session?.user?.id || 'anonymous',
-        p_interaction_type: 'comment',
-        p_content: commentInput
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        setComments(prev => [...prev, commentInput]);
-        setCommentInput('');
-
-        // Reward story creator
-        await earnTokens(3, 'Story received a comment', storyId);
-      }
-    } catch (error) {
-      console.error('Error adding comment:', error);
+      // Reward story creator
+      await earnTokens(3, 'Story received a comment', storyId);
+    } else {
+      console.error('Error adding comment:', result.error);
     }
   };
 
@@ -314,7 +375,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
     <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
       {/* Progress bars */}
       <div className="absolute top-4 left-4 right-16 flex gap-1 z-20">
-        {story.media.map((_, index) => (
+        {Array.isArray(story.media) ? story.media.map((_: any, index: number) => (
           <div key={index} className="h-1 bg-gray-600 rounded-full flex-1">
             <div 
               className={`h-full rounded-full ${
@@ -327,7 +388,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
               style={{ width: index === currentSlide ? `${progress}%` : undefined }}
             ></div>
           </div>
-        ))}
+        )) : null}
       </div>
 
       {/* Close button */}
@@ -397,25 +458,34 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
             )}
           </div>
         )}
-        {story.media[currentSlide]?.type === 'image' ? (
+        {Array.isArray(story.media) && story.media[currentSlide] ? (
+          story.media[currentSlide].type === 'image' ? (
+            <img
+              src={story.media[currentSlide].url}
+              alt={`Story from ${story.userName}`}
+              className="w-full h-full object-contain"
+              style={{ filter: story.filter || undefined }}
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              src={story.media[currentSlide].url}
+              className="w-full h-full object-contain"
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              style={{ filter: story.filter || undefined }}
+            />
+          )
+        ) : typeof story.media === 'string' ? (
           <img
-            src={story.media[currentSlide].url}
+            src={story.media}
             alt={`Story from ${story.userName}`}
             className="w-full h-full object-contain"
-            style={{ filter: story.filter }}
+            style={{ filter: story.filter || undefined }}
           />
-        ) : (
-          <video
-            ref={videoRef}
-            src={story.media[currentSlide].url}
-            className="w-full h-full object-contain"
-            autoPlay
-            loop
-            muted={isMuted}
-            playsInline
-            style={{ filter: story.filter }}
-          />
-        )}
+        ) : null}
 
         {/* Story info with token balance */}
         <div className="absolute top-12 left-4 flex items-center gap-3">
@@ -431,7 +501,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ story, onClose }) => {
               </div>
             </div>
             <div className="text-xs text-gray-300">
-              {new Date(story.createdAt).toLocaleTimeString([], { 
+              {new Date(story.createdAt || story.timestamp || new Date()).toLocaleTimeString([], { 
                 hour: '2-digit', 
                 minute: '2-digit' 
               })}
