@@ -1,3 +1,7 @@
+/* Import custom fonts */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,9 +19,6 @@
   --font-main: 'Space Grotesk', sans-serif;
   --font-accent: 'Clash Display', sans-serif;
 }
-
-/* Import custom fonts */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 /* Fix Clash Display font loading - directly link to CSS file in the head instead of as @font-face */
 
@@ -621,4 +622,31 @@ input[type="radio"]:checked + .theme-radio::before {
 .theme-preview {
   width: 100%;
   transition: all 0.3s ease;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased text-gray-900 bg-white;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md transition-colors duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+  }
+}
+
+@layer utilities {
+  .appearance-none {
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }

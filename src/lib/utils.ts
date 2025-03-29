@@ -163,3 +163,98 @@ const getRandomAvatarUrl = (userId: string): string => {
   const style = avatarStyles[Math.floor(Math.random() * avatarStyles.length)];
   return `https://avatars.dicebear.com/api/${style}/${userId}.svg`;
 };
+
+import { format } from 'date-fns';
+
+/**
+ * Formats a date into a human-readable string
+ */
+export const formatDate = (date: Date | string): string => {
+  return format(new Date(date), 'MMM d, yyyy HH:mm');
+};
+
+/**
+ * Formats a time into a human-readable string
+ */
+export const formatTime = (time: Date | string): string => {
+  return format(new Date(time), 'HH:mm');
+};
+
+/**
+ * Formats a currency amount into a human-readable string
+ */
+export const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+/**
+ * Formats a number into a human-readable string
+ */
+export const formatNumberIntl = (number: number): string => {
+  return new Intl.NumberFormat('en-US').format(number);
+};
+
+/**
+ * Truncates a string to a specified length
+ */
+export const truncateText = (text: string, length: number): string => {
+  if (text.length <= length) return text;
+  return `${text.slice(0, length)}...`;
+};
+
+/**
+ * Checks if an email address is valid
+ */
+export const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
+ * Generates a random ID
+ */
+export const generateRandomId = (): string => {
+  return Math.random().toString(36).substr(2, 9);
+};
+
+/**
+ * Capitalizes a string
+ */
+export const capitalize = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/**
+ * Debounces a function
+ */
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout;
+
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+/**
+ * Throttles a function
+ */
+export const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): ((...args: Parameters<T>) => void) => {
+  let inThrottle: boolean;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+};

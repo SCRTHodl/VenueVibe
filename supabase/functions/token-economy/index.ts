@@ -1,158 +1,147 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Create a secure Supabase client with the service role key
-// Using VITE-prefixed environment variables as they contain the same values
-const supabaseUrl = Deno.env.get('VITE_SUPABASE_URL') || ''
-const supabaseServiceKey = Deno.env.get('VITE_SUPABASE_ANON_KEY') || ''
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing environment variables");
+  Deno.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface TokenEconomyRequest {
+  action: 'mint' | 'award' | 'balance';
+  userId: string;
+  amount?: number;
+  reason?: string;
+  eventId?: string;
+}
+
+interface TokenEconomyResponse {
+  success: boolean;
+  message?: string;
+  data?: Record<string, unknown>;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+};
 
-serve(async (req) => {
+const createResponse = (
+  success: boolean,
+  message?: string,
+  data?: Record<string, unknown>,
+  status: number = 200
+) => {
+  return new Response(
+    JSON.stringify({ success, message, data }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status,
+    }
+  );
+};
+
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
-  
+
   try {
-    // Create Supabase admin client with service role key
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    })
+    const body = await req.json() as TokenEconomyRequest;
 
-    // Get JWT from request authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    switch (body.action) {
+      case 'mint': {
+        if (!body.amount || !body.reason || !body.eventId) {
+          return createResponse(
+            false,
+            'Missing required parameters for mint action'
+          );
+        }
 
-    // Verify the user token
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid user token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+        const { data: mintResult, error: mintError } = await supabase
+          .from("event_nfts")
+          .insert([{
+            event_id: body.eventId,
+            owner_id: body.userId,
+            amount: body.amount,
+            reason: body.reason,
+            created_at: new Date().toISOString()
+          }])
+          .select();
 
-    // Parse the request body
-    const { operation, table, data, filters } = await req.json()
-    
-    // Access token_economy schema with full admin privileges
-    let result
-    const tokenEconomySchema = supabase.schema('token_economy')
-    
-    switch (operation) {
-      case 'select':
-        result = await tokenEconomySchema.from(table).select('*')
-        if (filters) {
-          // Apply any filters passed from client
-          Object.entries(filters).forEach(([key, value]) => {
-            result = result.eq(key, value)
-          })
+        if (mintError) throw mintError;
+
+        return createResponse(
+          true,
+          'NFT minted successfully',
+          mintResult
+        );
+      }
+
+      case 'award': {
+        if (!body.reason) {
+          return createResponse(
+            false,
+            'Missing required parameters for award action'
+          );
         }
-        break
-        
-      case 'insert':
-        result = await tokenEconomySchema.from(table).insert({
-          ...data,
-          user_id: user.id // Add user_id to ensure data ownership
-        })
-        break
-        
-      case 'update':
-        if (!filters || !filters.id) {
-          return new Response(
-            JSON.stringify({ error: 'ID is required for update operations' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        
-        // First check if user owns this record
-        const { data: checkData } = await tokenEconomySchema
-          .from(table)
-          .select('user_id')
-          .eq('id', filters.id)
-          .single()
-          
-        if (!checkData || checkData.user_id !== user.id) {
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized to update this record' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        
-        result = await tokenEconomySchema
-          .from(table)
-          .update(data)
-          .eq('id', filters.id)
-        break
-        
-      case 'delete':
-        if (!filters || !filters.id) {
-          return new Response(
-            JSON.stringify({ error: 'ID is required for delete operations' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        
-        // First check if user owns this record
-        const { data: checkDeleteData } = await tokenEconomySchema
-          .from(table)
-          .select('user_id')
-          .eq('id', filters.id)
-          .single()
-          
-        if (!checkDeleteData || checkDeleteData.user_id !== user.id) {
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized to delete this record' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-        
-        result = await tokenEconomySchema
-          .from(table)
-          .delete()
-          .eq('id', filters.id)
-        break
-        
-      case 'get_wallet':
-        // Special operation to get user's wallet balance
-        result = await tokenEconomySchema
-          .from('wallets')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-        break
-        
+
+        const { data: awardResult, error: awardError } = await supabase
+          .from("event_badges")
+          .insert([{
+            event_id: body.eventId,
+            user_id: body.userId,
+            reason: body.reason,
+            created_at: new Date().toISOString()
+          }])
+          .select();
+
+        if (awardError) throw awardError;
+
+        return createResponse(
+          true,
+          'Badge awarded successfully',
+          awardResult
+        );
+      }
+
+      case 'balance': {
+        const { data: balanceResult, error: balanceError } = await supabase
+          .from("user_tokens")
+          .select("sum(amount) as total")
+          .eq("user_id", body.userId)
+          .single();
+
+        if (balanceError) throw balanceError;
+
+        return createResponse(
+          true,
+          'Balance retrieved successfully',
+          {
+            total: balanceResult?.total || 0
+          }
+        );
+      }
+
       default:
-        return new Response(
-          JSON.stringify({ error: 'Invalid operation' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return createResponse(
+          false,
+          'Invalid action'
+        );
     }
-    
-    return new Response(
-      JSON.stringify({ data: result.data, error: result.error }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-    
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.error("Error processing request:", error);
+    return createResponse(
+      false,
+      'Internal server error',
+      undefined,
+      500
+    );
   }
-})
+});

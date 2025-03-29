@@ -17,6 +17,9 @@ interface UserContextType {
   setActivityEvents: React.Dispatch<React.SetStateAction<ActivityEvent[]>>;
   userTheme: AppTheme;
   updateUserTheme: (theme: AppTheme) => Promise<void>;
+  nfts: any[];
+  badges: any[];
+  loadUserAssets: () => Promise<void>;
   logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
@@ -31,6 +34,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showUserSettings, setShowUserSettings] = useState<boolean>(false);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [nfts, setNFTs] = useState<any[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
   
   // Default theme settings
   const [userTheme, setUserTheme] = useState<AppTheme>({
@@ -42,6 +47,34 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     textPrimary: '#ffffff', // White
     textSecondary: '#a1a1aa' // Light gray
   });
+
+  // Load user's NFTs and badges
+  const loadUserAssets = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      // Get user's NFTs
+      const { data: userNFTs, error: nftError } = await supabase
+        .from('event_nfts')
+        .select('*')
+        .eq('owner_id', currentUser.id);
+
+      if (nftError) throw nftError;
+      setNFTs(userNFTs || []);
+
+      // Get user's badges
+      const { data: userBadges, error: badgeError } = await supabase
+        .from('event_badges')
+        .select('*')
+        .eq('user_id', currentUser.id);
+
+      if (badgeError) throw badgeError;
+      setBadges(userBadges || []);
+    } catch (error) {
+      console.error('Error loading user assets:', error);
+      toast.error('Failed to load NFTs and badges');
+    }
+  };
 
   // Check for existing session and load user data
   useEffect(() => {
@@ -70,58 +103,41 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
             return;
           }
-          
-          // Get user token balance from public schema with te_ prefix
-          const { data: tokenData, error } = await supabase
-            .from('te_user_token_balances') // Use the migrated table in public schema
-            .select('balance')
-            .eq('user_id', userId)
-            .maybeSingle(); // Use maybeSingle to avoid errors if no record exists
-            
-          if (error) {
-            console.error('Error getting token data:', error);
-            // Continue anyway - tokens are optional
-          }
-          
-          // User object from database
-          const user: User = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            avatar: userData.avatar_url,
-            isAdmin: userData.is_admin,
-            tokens: tokenData?.balance || 0,
-            lastLogin: new Date().toISOString()
-          };
-          
-          setCurrentUser(user);
-          setIsAdmin(userData.is_admin || false);
-          
-          // Also create an activity event for login if none exists
-          const newEvent: ActivityEvent = {
-            id: uuidv4(),
-            type: 'login',
-            userId: user.id,
-            userName: user.name,
-            userAvatar: user.avatar,
-            content: 'logged in',
-            createdAt: new Date().toISOString()
-          };
-          
-          setActivityEvents(prev => [newEvent, ...prev]);
-        } else {
-          // No session found, use a mock user for demo purposes
-          const mockUser = TEST_USERS[0];
-          setCurrentUser(mockUser);
+
+          setCurrentUser(userData);
+          loadUserAssets(); // Load NFTs and badges after user data
         }
+
+        setIsLoading(false);
       } catch (error) {
-        console.error('Error in loadUserSession:', error);
-      } finally {
+        console.error('Error loading user session:', error);
         setIsLoading(false);
       }
     };
-    
+
     loadUserSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setNFTs([]);
+        setBadges([]);
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        const userData = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData?.data) {
+          setCurrentUser(userData.data);
+          loadUserAssets();
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAdmin = useCallback(async (): Promise<boolean> => {
@@ -424,39 +440,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Function to update user theme
   const updateUserTheme = async (theme: AppTheme) => {
-    // Set the new theme in state
-    setUserTheme(theme);
-    
     try {
-      if (currentUser) {
-        // Save theme to user settings in public schema
-        const { error } = await supabase
-          .from('user_preferences')
-          .upsert({ 
-            user_id: currentUser.id,
-            theme: theme,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
-        
-        if (error) throw error;
-        toast.success('Theme updated successfully');
-        
-        // Update activity feed
-        const activityEvent: ActivityEvent = {
-          id: uuidv4(),
-          type: 'theme_update',
-          userId: currentUser.id,
-          userName: currentUser.name,
-          userAvatar: currentUser.avatar,
-          content: 'Updated their theme',
-          createdAt: new Date().toISOString()
-        };
-        
-        setActivityEvents(prev => [activityEvent, ...prev]);
-      }
+      if (!currentUser) return;
+
+      const { error } = await supabase
+        .from('users')
+        .update({ theme })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      setUserTheme(theme);
+      setCurrentUser(prev => prev ? { ...prev, theme } : null);
+
+      toast.success('Theme updated successfully');
     } catch (error) {
       console.error('Error updating theme:', error);
-      toast.error('Failed to save theme settings');
+      toast.error('Failed to update theme');
     }
   };
 
@@ -473,6 +473,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActivityEvents,
         userTheme,
         updateUserTheme,
+        nfts,
+        badges,
+        loadUserAssets,
         login,
         signup,
         logout,

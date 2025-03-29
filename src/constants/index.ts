@@ -3,6 +3,18 @@ import type { Channel, Group, Post, EventTheme, TrendingTopic, LocalEvent, AIRec
 // Event themes for special occasions
 export const EVENT_THEMES: EventTheme[] = [
   {
+    id: 'march-madness',
+    name: 'March Madness Basketball',
+    description: 'College basketball tournament events and watch parties',
+    primaryColor: '#FF4500', // Basketball orange
+    secondaryColor: '#000000', // Black
+    accentColor: '#FFD700', // Gold
+    bannerUrl: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=1200&h=400&fit=crop',
+    startDate: '2025-03-15',
+    endDate: '2025-04-07',
+    isActive: true
+  },
+  {
     id: 'spring-training',
     name: 'SottoCity',
     description: 'Special baseball spring training events and activities',
@@ -62,7 +74,7 @@ export const TEST_GROUPS: Group[] = [
       waitTime: '30-45 min'
     },
     inviteCode: 'CIBO2025',
-    eventTheme: EVENT_THEMES[0]
+    eventTheme: EVENT_THEMES[1]
   },
   {
     id: '123e4567-e89b-12d3-a456-426614174001',
@@ -85,7 +97,7 @@ export const TEST_GROUPS: Group[] = [
       waitTime: '45-60 min'
     },
     inviteCode: 'CHURCHILL25',
-    eventTheme: EVENT_THEMES[0]
+    eventTheme: EVENT_THEMES[1]
   },
   {
     id: '123e4567-e89b-12d3-a456-426614174002',
@@ -299,7 +311,7 @@ export const MOCK_POSTS: Post[] = [
     createdAt: new Date(Date.now() - 300 * 60000).toISOString(),
     venue: TEST_GROUPS[3],
     content: "$25 bottle of wine + board of bruschetta deal at Postino's is unbeatable! Perfect spot for a casual date night or catch-up with friends. The prosciutto & fig bruschetta is a must-try! 🍷",
-    photos: ['https://images.unsplash.com/photo-1515779122185-2390ccdf060b?w=800&h=600&fit=crop'],
+    photos: ['https://images.unsplash.com/photo-1515779122185-65987783cb6a?w=800&h=600&fit=crop'],
     likes: 92,
     comments: 19,
     isLiked: false,

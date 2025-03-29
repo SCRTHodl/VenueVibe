@@ -138,24 +138,92 @@ export interface Group {
   category: string;
   rating: number;
   priceRange: string;
-  photos?: string[]; // Make optional to match types.ts version
-  inviteCode?: string; // Property for invite code
-  eventTheme?: EventTheme; // Property for event theme
-  image?: string; // Added for compatibility with types.ts
-  venueId?: string; // Added for compatibility with types.ts
-  // Make popularTimes compatible with both interfaces
-  popularTimes?: PopularTimes | {
+  photos: string[];
+  popularTimes: {
     now: string;
-    trend: 'up' | 'down' | 'stable';
+    trend: string;
     waitTime: string;
   };
+  inviteCode: string;
+  eventTheme: EventTheme;
 }
 
 export interface Channel {
   id: string;
   name: string;
-  icon: string;
   description: string;
+  icon: string;
+  members: number;
+  messages: number;
+  lastMessage: string;
+  lastMessageTime: string;
+  isPrivate: boolean;
+  isMuted: boolean;
+  isPinned: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventTheme {
+  id: string;
+  name: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  bannerUrl: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
+export interface TrendingTopic {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  followers: number;
+  posts: number;
+  isTrending: boolean;
+  trendScore: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocalEvent {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  startTime: string;
+  endTime: string;
+  eventType: string;
+  category: string;
+  imageUrl: string;
+  attendees: number;
+  capacity: number;
+  isFree: boolean;
+  price: number;
+  isFeatured: boolean;
+  isCanceled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIRecommendation {
+  id: string;
+  userId: string;
+  groupId: string;
+  recommendationType: string;
+  content: string;
+  confidence: number;
+  relevanceScore: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Message {
@@ -183,21 +251,7 @@ export interface Message {
   replyTo?: string;
 }
 
-// Event theme type for special occasions
-export interface EventTheme {
-  id: string;
-  name: string;
-  description: string;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  bannerUrl: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-}
-
-// Fix circular import
+// Post interface
 export interface Post {
   id: string;
   title: string;
@@ -219,24 +273,46 @@ export interface PromotionBox {
   linkUrl?: string;
 }
 
-// Special Event for the admin panel
+export interface EventNFT {
+  id: string;
+  event_id: string;
+  owner_id: string;
+  metadata: {
+    image: string;
+    name: string;
+    description: string;
+    minted_at: string;
+    owner: string;
+  };
+}
+
+export interface EventBadge {
+  id: string;
+  event_id: string;
+  user_id: string;
+  badge_type: 'attendance' | 'participant' | 'contributor';
+  metadata: {
+    name: string;
+    awarded_at: string;
+    awardee: string;
+  };
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
 export interface SpecialEvent {
   id: string;
   name: string;
   description: string;
-  startDate: string;
-  endDate: string;
   location: string;
-  venueId?: string;
-  venueName?: string;
-  imageUrl?: string;
-  capacity?: number;
-  inviteCode?: string;
-  specialOffers: SpecialOffer[];
-  theme?: EventTheme;
-  isActive: boolean;
+  startTime: string;
+  endTime: string;
+  nftImage: string;
   createdAt: string;
-  updatedBy: string;
 }
 
 // Special Offer type for events
@@ -257,38 +333,19 @@ export interface SpecialOffer {
 
 // Promotion Settings interface
 export interface PromotionSettings {
-  isEnabled: boolean;
-  headingText?: string;
-  subheadingText?: string;
-  bannerText?: string;
-  tokenReward?: number;
-  promotionTheme?: EventTheme | null;
-  moderationKeywords?: string[];
-  contentFocus?: string;
-  promotionalBoxes?: PromotionBox[];
-  discountBoxes: PromotionBox[];
-  promotionalImages: string[];
-  specialOffer?: string;
-  customBannerUrl?: string;
-  specialEvents?: SpecialEvent[];
+  id: number;
+  is_enabled: boolean;
+  token_reward: number;
+  theme: EventTheme | null;
+  moderation_keywords: string[];
+  content_focus: string;
+  promotional_boxes: any[];
+  special_offer: string;
+  custom_banner_url: string;
+  heading_text: string;
+  subheading_text: string;
+  banner_text: string;
+  discount_boxes: any[];
+  promotional_images: any[];
+  special_events: SpecialEvent[];
 }
-
-// Legacy Post interface - kept for reference but not used
-// Remove after confirming all components use the main Post interface
-/*
-export interface LegacyPost {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  createdAt: string;
-  venue: Group;
-  content: string;
-  photos?: string[];
-  likes: number;
-  comments: number;
-  isLiked?: boolean;
-  isSaved?: boolean;
-  tags?: string[];
-}
-*/

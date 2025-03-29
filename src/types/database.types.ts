@@ -62,6 +62,61 @@ export interface Database {
           updated_at?: string;
         };
       };
+      event_nfts: {
+        Row: {
+          id: string;
+          event_id: string;
+          token_id: string;
+          owner_id: string;
+          metadata: Record<string, any>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          token_id: string;
+          owner_id: string;
+          metadata: Record<string, any>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          token_id?: string;
+          owner_id?: string;
+          metadata?: Record<string, any>;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      event_badges: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          badge_type: 'attendance' | 'participant' | 'contributor';
+          metadata: Record<string, any>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          badge_type: 'attendance' | 'participant' | 'contributor';
+          metadata: Record<string, any>;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          badge_type?: 'attendance' | 'participant' | 'contributor';
+          metadata?: Record<string, any>;
+          created_at?: string;
+        };
+      };
     };
   };
 }

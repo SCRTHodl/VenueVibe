@@ -581,24 +581,116 @@ export class TokenService {
 
     return data as TokenTransaction[];
   }
+
+  /**
+   * Mint a unique NFT for a special event
+   * @param eventId The ID of the event
+   * @param userId The ID of the user receiving the NFT
+   * @param metadata Additional metadata for the NFT
+   */
+  public async mintEventNFT(eventId: string, userId: string, metadata: Record<string, any> = {}): Promise<string> {
+    try {
+      const { data: nftData, error } = await supabase
+        .from('event_nfts')
+        .insert([
+          {
+            event_id: eventId,
+            owner_id: userId,
+            metadata: {
+              ...metadata,
+              minted_at: new Date().toISOString(),
+              event_id: eventId
+            }
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      return nftData.id;
+    } catch (error) {
+      console.error('Error minting event NFT:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Award a badge to a user for a special event
+   * @param eventId The ID of the event
+   * @param userId The ID of the user receiving the badge
+   * @param badgeType The type of badge (attendance, participant, contributor)
+   * @param metadata Additional metadata for the badge
+   */
+  public async awardEventBadge(
+    eventId: string,
+    userId: string,
+    badgeType: 'attendance' | 'participant' | 'contributor',
+    metadata: Record<string, any> = {}
+  ): Promise<string> {
+    try {
+      const { data: badgeData, error } = await supabase
+        .from('event_badges')
+        .insert([
+          {
+            event_id: eventId,
+            user_id: userId,
+            badge_type: badgeType,
+            metadata: {
+              ...metadata,
+              awarded_at: new Date().toISOString(),
+              event_id: eventId
+            }
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      return badgeData.id;
+    } catch (error) {
+      console.error('Error awarding event badge:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all NFTs owned by a user for a specific event
+   * @param eventId The ID of the event
+   * @param userId The ID of the user
+   */
+  public async getUserEventNFTs(eventId: string, userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('event_nfts')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('owner_id', userId);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Get all badges earned by a user for a specific event
+   * @param eventId The ID of the event
+   * @param userId The ID of the user
+   */
+  public async getUserEventBadges(eventId: string, userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('event_badges')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return data || [];
+  }
 }
 
 // Export a singleton instance for use throughout the app
 export const tokenService = TokenService.getInstance();
 
 // Example usage:
-// 
-// // Get user balance
-// const balance = await tokenService.getMyBalance();
-// 
-// // Earn tokens for story creation
-// const newBalance = await tokenService.earnTokens(
-//   10, 
-//   'story_creation',
-//   'story-123',
-//   'Created a story with location and video'
-// );
-// 
-// // Calculate rewards for a new story
-// const reward = tokenService.calculateReward(true, true, 3);
-// console.log(`You earned ${reward.total} tokens!`);
+// const nftId = await tokenService.mintEventNFT('event-123', 'user-456', { name: 'Spring Launch Party NFT' });
+// const badgeId = await tokenService.awardEventBadge('event-123', 'user-456', 'attendance', { name: 'Spring Launch Attendee' });
