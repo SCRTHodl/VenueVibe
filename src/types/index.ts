@@ -20,21 +20,21 @@ export interface Rating {
 // UserStory interface that's comprehensive with all necessary properties
 export interface UserStory {
   id: string;
-  userId: string;
+  user_id: string;
   caption?: string;
-  content_url: string;
+  content_url?: string;
   status?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
   filter?: string;
-  expiresAt?: string;
+  expires_at?: string;
   viewed?: boolean;
-  viewedBy?: string[];
-  isPremium?: boolean;
-  unlockCost?: number;
-  isMonetized?: boolean;
-  monetizationStatus?: string;
-  moderationStatus?: string;
+  viewed_by?: string[];
+  is_premium?: boolean;
+  unlock_cost?: number;
+  is_monetized?: boolean;
+  monetization_status?: string;
+  moderation_status?: string;
   visibility?: string;
   gifts?: number;
   analytics?: {
@@ -48,9 +48,9 @@ export interface UserStory {
     count: number;
     latest: Array<{
       id: string;
-      userId: string;
+      user_id: string;
       content: string;
-      createdAt: string;
+      created_at: string;
     }>;
   };
   stickers?: Array<{

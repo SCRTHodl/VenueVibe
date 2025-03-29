@@ -45,21 +45,21 @@ export const setupPremiumContent = async (
  */
 export interface UserStory {
   id: string;
-  userId: string;
+  user_id: string;
   caption?: string;
-  content_url: string;
+  content_url?: string;
   status?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
   filter?: string;
-  expiresAt?: string;
+  expires_at?: string;
   viewed?: boolean;
-  viewedBy?: string[];
-  isPremium?: boolean;
-  unlockCost?: number;
-  isMonetized?: boolean;
-  monetizationStatus?: string;
-  moderationStatus?: string;
+  viewed_by?: string[];
+  is_premium?: boolean;
+  unlock_cost?: number;
+  is_monetized?: boolean;
+  monetization_status?: string;
+  moderation_status?: string;
   visibility?: string;
   gifts?: number;
   analytics?: {
@@ -73,9 +73,9 @@ export interface UserStory {
     count: number;
     latest: Array<{
       id: string;
-      userId: string;
+      user_id: string;
       content: string;
-      createdAt: string;
+      created_at: string;
     }>;
   };
   stickers?: Array<{
@@ -112,22 +112,20 @@ export const createStoryObject = ({
   
   return {
     id: crypto.randomUUID(),
-    userId: '', // Will be set by the API
+    user_id: '', // Will be set by the API
     caption,
     content_url: mediaItem.url,
-    location,
-    filter,
     status: 'published',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
     viewed: false,
-    viewedBy: [],
-    isPremium,
-    unlockCost,
-    isMonetized: false,
-    monetizationStatus: 'pending',
-    moderationStatus: 'pending',
+    viewed_by: [],
+    is_premium: isPremium,
+    unlock_cost: unlockCost,
+    is_monetized: false,
+    monetization_status: 'pending',
+    moderation_status: 'pending',
     visibility: 'public',
     gifts: 0,
     analytics: {
@@ -163,13 +161,13 @@ export const publishStory = async (storyData: UserStory) => {
     }
     
     // Setup premium content if needed
-    if (storyData.isPremium) {
+    if (storyData.is_premium) {
       try {
         await setupPremiumContent(
           storyData.id,
-          storyData.userId,
-          storyData.isPremium,
-          storyData.unlockCost || TOKEN_ECONOMY.COSTS.PREMIUM_CONTENT
+          storyData.user_id,
+          storyData.is_premium,
+          storyData.unlock_cost || TOKEN_ECONOMY.COSTS.PREMIUM_CONTENT
         );
       } catch (premiumError) {
         console.error('[StoryPublisher] Error setting premium content:', premiumError);
