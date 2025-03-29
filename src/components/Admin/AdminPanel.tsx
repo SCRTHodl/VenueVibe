@@ -4,7 +4,8 @@ import { useUser } from '../../contexts/UserContext';
 import InviteCodeManager from './InviteCodeManager';
 import PromotionSettings from './PromotionSettings';
 import TokenAdmin from './TokenAdmin';
-import { Clipboard, Gift, Shield, Coins, Users, BarChart } from 'lucide-react';
+import SpecialEventsManager from './SpecialEventsManager';
+import { Clipboard, Gift, Shield, Coins, Users, BarChart, Calendar } from 'lucide-react';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -36,6 +37,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         return <InviteCodeManager />;
       case 'promotion':
         return <PromotionSettings />;
+      case 'specialEvents':
+        return <SpecialEventsManager />;
       case 'moderation':
         return (
           <div className="p-6">
@@ -81,6 +84,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             >
               <Gift className="w-5 h-5 mr-2" />
               <span>Promotion</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('specialEvents')}
+              className={`flex items-center w-full px-3 py-2 text-left rounded-md ${
+                activeTab === 'specialEvents' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              <Calendar className="w-5 h-5 mr-2" />
+              <span>Special Events</span>
             </button>
             
             <button 

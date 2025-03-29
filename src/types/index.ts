@@ -138,6 +138,69 @@ export interface EventTheme {
 // Import the Post interface from main types file to keep definitions in sync
 export type { Post } from '../types';
 
+// Promotion Box for the admin panel
+export interface PromotionBox {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  linkUrl?: string;
+}
+
+// Special Event for the admin panel
+export interface SpecialEvent {
+  id: string;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  venueId?: string;
+  venueName?: string;
+  imageUrl?: string;
+  capacity?: number;
+  inviteCode?: string;
+  specialOffers: SpecialOffer[];
+  theme?: EventTheme;
+  isActive: boolean;
+  createdAt: string;
+  updatedBy: string;
+}
+
+// Special Offer type for events
+export interface SpecialOffer {
+  id: string;
+  title: string;
+  description: string;
+  discountAmount?: number;
+  discountType?: 'percentage' | 'fixed' | 'tokenBased';
+  tokenCost?: number;
+  validFrom: string;
+  validUntil: string;
+  redemptionCode?: string;
+  maxRedemptions?: number;
+  currentRedemptions?: number;
+  isActive: boolean;
+}
+
+// Promotion Settings interface
+export interface PromotionSettings {
+  isEnabled: boolean;
+  headingText?: string;
+  subheadingText?: string;
+  bannerText?: string;
+  tokenReward?: number;
+  promotionTheme?: EventTheme | null;
+  moderationKeywords?: string[];
+  contentFocus?: string;
+  promotionalBoxes?: PromotionBox[];
+  discountBoxes: PromotionBox[];
+  promotionalImages: string[];
+  specialOffer?: string;
+  customBannerUrl?: string;
+  specialEvents?: SpecialEvent[];
+}
+
 // Legacy Post interface - kept for reference but not used
 // Remove after confirming all components use the main Post interface
 /*

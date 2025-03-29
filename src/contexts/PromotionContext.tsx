@@ -1,7 +1,7 @@
-import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
-import { PromotionSettings, EventTheme } from '../types';
+import { PromotionSettings, EventTheme, SpecialEvent } from '../types';
 
 interface PromotionContextType {
   promotionSettings: PromotionSettings;
@@ -34,7 +34,13 @@ const defaultPromotionSettings: PromotionSettings = {
   contentFocus: 'General',
   promotionalBoxes: [],
   specialOffer: 'Special Promotion',
-  customBannerUrl: ''
+  customBannerUrl: '',
+  headingText: 'Special Event',
+  subheadingText: 'Join us for an amazing experience',
+  bannerText: 'Limited time offer!',
+  discountBoxes: [],
+  promotionalImages: [],
+  specialEvents: []
 };
 
 const PromotionContext = createContext<PromotionContextType | undefined>(undefined);
@@ -108,7 +114,19 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ? JSON.stringify(newSettings.promotionalBoxes) 
           : JSON.stringify([]),
         special_offer: newSettings.specialOffer || '',
-        custom_banner_url: newSettings.customBannerUrl || ''
+        custom_banner_url: newSettings.customBannerUrl || '',
+        heading_text: newSettings.headingText || '',
+        subheading_text: newSettings.subheadingText || '',
+        banner_text: newSettings.bannerText || '',
+        discount_boxes: Array.isArray(newSettings.discountBoxes)
+          ? JSON.stringify(newSettings.discountBoxes)
+          : JSON.stringify([]),
+        promotional_images: Array.isArray(newSettings.promotionalImages)
+          ? JSON.stringify(newSettings.promotionalImages)
+          : JSON.stringify([]),
+        special_events: Array.isArray(newSettings.specialEvents)
+          ? JSON.stringify(newSettings.specialEvents)
+          : JSON.stringify([])
       };
       
       // Save to database using regular client (no need for schema prefix anymore)
@@ -126,12 +144,134 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPromotionSettings(newSettings);
       toast.success("Promotion settings updated");
       
+      // If updating special events, also update the special_events table
+      if (updatedSettings.specialEvents) {
+        try {
+          // First, get existing events
+          const { data: existingEvents } = await supabase
+            .from('special_events')
+            .select('id');
+            
+          // Process each event in the updated list
+          if (Array.isArray(updatedSettings.specialEvents)) {
+            for (const event of updatedSettings.specialEvents) {
+              // Format event for database (camelCase to snake_case)
+              const eventData = {
+                id: event.id,
+                name: event.name,
+                description: event.description,
+                start_date: event.startDate,
+                end_date: event.endDate,
+                location: event.location,
+                venue_id: event.venueId || null,
+                venue_name: event.venueName || null,
+                image_url: event.imageUrl || null,
+                capacity: event.capacity || null,
+                invite_code: event.inviteCode || null,
+                special_offers: JSON.stringify(event.specialOffers || []),
+                theme: event.theme ? JSON.stringify(event.theme) : null,
+                is_active: event.isActive,
+                created_at: event.createdAt || new Date().toISOString(),
+                updated_by: event.updatedBy || user.id
+              };
+              
+              // Check if event exists and update or insert accordingly
+              const eventExists = existingEvents?.some(e => e.id === event.id);
+              
+              if (eventExists) {
+                // Update existing event
+                await supabase
+                  .from('special_events')
+                  .update(eventData)
+                  .eq('id', event.id);
+              } else {
+                // Insert new event
+                await supabase
+                  .from('special_events')
+                  .insert([eventData]);
+              }
+            }
+            
+            // Delete events that are no longer in the list
+            if (existingEvents && existingEvents.length > 0) {
+              const currentEventIds = updatedSettings.specialEvents.map((e: SpecialEvent) => e.id);
+              const eventsToDelete = existingEvents
+                .filter((e: { id: string }) => !currentEventIds.includes(e.id))
+                .map((e: { id: string }) => e.id);
+                
+              if (eventsToDelete.length > 0) {
+                await supabase
+                  .from('special_events')
+                  .delete()
+                  .in('id', eventsToDelete);
+              }
+            }
+          }
+        } catch (specialEventsError) {
+          console.error('Error managing special events:', specialEventsError);
+          // Don't show error toast here since we already saved the main settings
+        }
+      }
     } catch (error) {
       console.error("Error updating promotion settings:", error);
       toast.error(error instanceof Error ? error.message : "Failed to update promotion settings");
     }
   }, [promotionSettings]);
 
+  // Load special events from the database and update state
+  const loadSpecialEvents = async (settings: PromotionSettings) => {
+    try {
+      if (!supabase) return;
+      
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('special_events')
+        .select('*')
+        .order('start_date', { ascending: false });
+      
+      if (eventsError) {
+        console.error('Error loading special events:', eventsError);
+        setPromotionSettings(settings);
+        return;
+      }
+      
+      if (eventsData && eventsData.length > 0) {
+        // Convert from snake_case DB format to camelCase for frontend
+        const formattedEvents = eventsData.map(event => ({
+          id: event.id,
+          name: event.name,
+          description: event.description,
+          startDate: event.start_date,
+          endDate: event.end_date,
+          location: event.location,
+          venueId: event.venue_id || undefined,
+          venueName: event.venue_name || undefined,
+          imageUrl: event.image_url || undefined,
+          capacity: event.capacity || undefined,
+          inviteCode: event.invite_code || undefined,
+          specialOffers: event.special_offers ? JSON.parse(event.special_offers) : [],
+          theme: event.theme ? JSON.parse(event.theme) : undefined,
+          isActive: event.is_active,
+          createdAt: event.created_at,
+          updatedBy: event.updated_by
+        }));
+        
+        // Update settings with loaded events
+        const updatedSettings = {
+          ...settings,
+          specialEvents: formattedEvents
+        };
+        
+        setPromotionSettings(updatedSettings);
+      } else {
+        // No events found, just set the original settings
+        setPromotionSettings(settings);
+      }
+    } catch (error) {
+      console.error('Error in loadSpecialEvents:', error);
+      setPromotionSettings(settings);
+    }
+  };
+  
   // Load promotion settings from database on mount
   React.useEffect(() => {
     let isMounted = true;
@@ -205,7 +345,17 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               (typeof data.promotional_boxes === 'string' ? JSON.parse(data.promotional_boxes) : data.promotional_boxes) : 
               [];
             
-            setPromotionSettings({
+            // Parse additional fields for enhanced promotion settings
+            const parsedDiscountBoxes = data.discount_boxes ? 
+              (typeof data.discount_boxes === 'string' ? JSON.parse(data.discount_boxes) : data.discount_boxes) : 
+              [];
+              
+            const parsedPromotionalImages = data.promotional_images ? 
+              (typeof data.promotional_images === 'string' ? JSON.parse(data.promotional_images) : data.promotional_images) : 
+              [];
+            
+            // Set initial promotion settings
+            const settings = {
               isEnabled: data.is_enabled,
               tokenReward: data.token_reward || 50,
               promotionTheme: parsedTheme,
@@ -213,8 +363,17 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               contentFocus: data.content_focus || 'General',
               promotionalBoxes: parsedBoxes,
               specialOffer: data.special_offer || 'Special Promotion',
-              customBannerUrl: data.custom_banner_url || ''
-            });
+              customBannerUrl: data.custom_banner_url || '',
+              headingText: data.heading_text || 'Special Event',
+              subheadingText: data.subheading_text || 'Join us for an amazing experience',
+              bannerText: data.banner_text || 'Limited time offer!',
+              discountBoxes: parsedDiscountBoxes,
+              promotionalImages: parsedPromotionalImages,
+              specialEvents: []
+            };
+            
+            // Load special events from separate table
+            loadSpecialEvents(settings);
             
             // If promotions are enabled, show the banner
             if (data.is_enabled) {

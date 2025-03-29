@@ -222,7 +222,7 @@ export interface DiscountBox {
 export interface PromotionSettings {
   isEnabled: boolean;
   tokenReward: number;
-  promotionTheme: EventTheme;
+  promotionTheme: EventTheme | null;
   moderationKeywords: string[];
   contentFocus: string;
   promotionalBoxes: PromotionBox[];
@@ -230,8 +230,46 @@ export interface PromotionSettings {
   customBannerUrl?: string; // Optional custom banner image URL
   headingText?: string; // Promotional heading text
   subheadingText?: string; // Promotional subheading text
-  discountBoxes?: DiscountBox[]; // List of discount boxes to display
-  promotionalImages?: string[]; // List of promotional images to display
+  bannerText?: string; // Banner text for promotions
+  discountBoxes: PromotionBox[]; // List of discount boxes to display
+  promotionalImages: string[]; // List of promotional images to display
+  specialEvents?: SpecialEvent[]; // Special events for the admin panel
+}
+
+// Special Event for the admin panel
+export interface SpecialEvent {
+  id: string;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  venueId?: string;
+  venueName?: string;
+  imageUrl?: string;
+  capacity?: number;
+  inviteCode?: string;
+  specialOffers: SpecialOffer[];
+  theme?: EventTheme;
+  isActive: boolean;
+  createdAt: string;
+  updatedBy: string;
+}
+
+// Special Offer type for events
+export interface SpecialOffer {
+  id: string;
+  title: string;
+  description: string;
+  discountAmount?: number;
+  discountType?: 'percentage' | 'fixed' | 'tokenBased';
+  tokenCost?: number;
+  validFrom: string;
+  validUntil: string;
+  redemptionCode?: string;
+  maxRedemptions?: number;
+  currentRedemptions?: number;
+  isActive: boolean;
 }
 
 export interface InviteCode {
