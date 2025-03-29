@@ -41,68 +41,107 @@ export const setupPremiumContent = async (
 };
 
 /**
+ * User story object
+ */
+export interface UserStory {
+  id: string;
+  userId: string;
+  caption?: string;
+  contentUrl: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  filter?: string;
+  expiresAt?: string;
+  viewed?: boolean;
+  viewedBy?: string[];
+  isPremium?: boolean;
+  unlockCost?: number;
+  isMonetized?: boolean;
+  monetizationStatus?: string;
+  moderationStatus?: string;
+  visibility?: string;
+  gifts?: number;
+  analytics?: {
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+  tags?: string[];
+  comments?: {
+    count: number;
+    latest: Array<{
+      id: string;
+      userId: string;
+      content: string;
+      createdAt: string;
+    }>;
+  };
+  stickers?: Array<{
+    id: string;
+    x: number;
+    y: number;
+    emoji: string;
+  }>;
+}
+
+/**
  * Create a complete story object with all necessary fields
  */
-export const createStoryObject = (params: {
-  userId: string,
-  mediaItems: Array<{type: 'image' | 'video', url: string}>,
-  caption?: string,
-  location?: string | null,
-  music?: string | null,
-  filter?: string,
-  isPremium?: boolean,
-  unlockCost?: number,
-  emojis?: string[],
-  stickers?: Array<{id: string, emoji: string, x: number, y: number}>
+export const createStoryObject = ({
+  caption,
+  mediaItems,
+  location,
+  filter,
+  isPremium,
+  unlockCost,
+  tags,
+  stickers,
+}: {
+  caption: string;
+  mediaItems: Array<{ type: 'image' | 'video'; url: string }>;
+  location?: string;
+  filter?: string;
+  isPremium?: boolean;
+  unlockCost?: number;
+  tags?: string[];
+  stickers?: Array<{ id: string; x: number; y: number; emoji: string }>;
 }): UserStory => {
-  const {
-    userId,
-    mediaItems,
-    caption,
-    location,
-    music,
-    filter,
-    isPremium = false,
-    unlockCost = TOKEN_ECONOMY.COSTS.PREMIUM_CONTENT,
-    emojis = [],
-    stickers = []
-  } = params;
-  
-  // Generate a unique story ID
-  const storyId = crypto.randomUUID();
-  
-  // Get user info from userId (in a real app, you'd fetch this from the database)
-  // For now we're using placeholders
-  const userName = 'User ' + userId.slice(0, 5);
-  const userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+  const mediaItem = mediaItems[0];
   
   return {
-    id: storyId,
-    userId: userId,
-    userName: userName,
-    userAvatar: userAvatar,
-    media: mediaItems,
-    caption: caption ? `${emojis.join('')} ${caption}` : undefined,
-    location: location || undefined,
-    music: music || undefined,
-    stickers: [
-      ...(stickers || []),
-      ...emojis.map((emoji, index) => ({
-        id: crypto.randomUUID(),
-        emoji,
-        x: Math.random() * 80 + 10,
-        y: Math.random() * 80 + 10
-      }))
-    ],
-    filter: filter || undefined,
+    id: crypto.randomUUID(),
+    userId: '', // Will be set by the API
+    caption,
+    contentUrl: mediaItem.url,
+    location,
+    filter,
+    status: 'published',
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    viewCount: 0,
+    updatedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    viewed: false,
     viewedBy: [],
-    tokenBalance: 0,
-    gifts: [],
-    isPremium: isPremium,
-    unlockCost: isPremium ? unlockCost : 0
+    isPremium,
+    unlockCost,
+    isMonetized: false,
+    monetizationStatus: 'pending',
+    moderationStatus: 'pending',
+    visibility: 'public',
+    gifts: 0,
+    analytics: {
+      views: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+    },
+    tags,
+    comments: {
+      count: 0,
+      latest: [],
+    },
+    stickers,
   };
 };
 

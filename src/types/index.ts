@@ -19,96 +19,55 @@ export interface Rating {
 
 // UserStory interface that's comprehensive with all necessary properties
 export interface UserStory {
-  // Basic story identification and user info
   id: string;
   userId: string;
-  userName: string;
-  userAvatar: string;
-  
-  // Media content - can be a string URL or an array of media objects
-  media: string | {
-    type: 'image' | 'video';
-    url: string;
-    width?: number;
-    height?: number;
-    duration?: number;
-  }[];
-  
-  // Story content and metadata
-  caption: string;
-  location?: string;
-  music?: string;
-  tags?: string[];
-  filter: string;
-  timestamp: string;
-  createdAt: string;
-  expiresAt: string;
+  caption?: string;
+  contentUrl: string;
+  status?: string;
+  createdAt?: string;
   updatedAt?: string;
-  
-  // Interactive elements
-  stickers?: {
-    id: string;
-    emoji: string;
-    x: number;
-    y: number;
-    scale?: number;
-    rotation?: number;
-  }[];
-  
-  // Engagement metrics
-  viewed: boolean;
-  viewCount: number;
-  viewedBy: string[];
-  likeCount?: number;
-  commentCount?: number;
-  shareCount?: number;
-  
-  // Premium and token related properties
+  filter?: string;
+  expiresAt?: string;
+  viewed?: boolean;
+  viewedBy?: string[];
   isPremium?: boolean;
   unlockCost?: number;
-  tokenBalance?: number;
   isMonetized?: boolean;
-  monetizationStatus?: 'enabled' | 'disabled' | 'pending';
-  
-  // Moderation and visibility
-  moderationStatus?: 'approved' | 'pending' | 'rejected';
-  visibility?: 'public' | 'followers' | 'private';
-  
-  // Gifts and interactions
-  gifts?: Array<{
-    id?: string;
-    type: string;
-    from: string;
-    amount?: number;
-    timestamp: string;
-  }>;
-  
-  // Additional context and metadata
-  comment?: {
-    text?: string;
-    media?: string;
-  };
+  monetizationStatus?: string;
+  moderationStatus?: string;
+  visibility?: string;
+  gifts?: number;
   analytics?: {
-    impressions?: number;
-    engagement?: number;
-    completionRate?: number;
-    averageWatchTime?: number;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
   };
+  tags?: string[];
+  comments?: {
+    count: number;
+    latest: Array<{
+      id: string;
+      userId: string;
+      content: string;
+      createdAt: string;
+    }>;
+  };
+  stickers?: Array<{
+    id: string;
+    x: number;
+    y: number;
+    emoji: string;
+  }>;
 }
 
 // Content moderation result type
 export interface ModerationResult {
-  status: 'approved' | 'pending' | 'rejected';
+  isModerated: boolean;
   reason?: string;
-  score: number;
-  categories: {
-    spam: number;
-    offensive: number;
-    adult: number;
-    violence: number;
-    [key: string]: number;
-  };
-  timestamp?: string;
+  severity?: 'low' | 'medium' | 'high';
+  flaggedContent?: string[];
+  suggestedAction?: string;
 }
 
 // Chat & Group types for the map chat functionality

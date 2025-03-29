@@ -25,11 +25,24 @@ import { MediaPreviewCarousel } from './StoryCapture';
 import { createStoryObject, publishStory as publishStoryToService } from '../../lib/stories/storyPublisher';
 
 interface StoryModalProps {
+  isOpen: boolean;
   onClose: () => void;
-  onStoryCreated?: (story: UserStory) => void;
+  user: User;
+  contentUrl?: string;
+  caption?: string;
+  filter?: string;
+  isPremium?: boolean;
+  unlockCost?: number;
+  tags?: string[];
+  stickers?: Array<{
+    id: string;
+    x: number;
+    y: number;
+    emoji: string;
+  }>;
 }
 
-export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated }) => {
+export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose, user, contentUrl, caption, filter, isPremium, unlockCost, tags, stickers }) => {
   // Type reference to ensure types are used by ESLint
   const _typeCheck = () => {
     const _story: UserStory = {} as UserStory;
@@ -50,7 +63,6 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
   // const [focusPoint, setFocusPoint] = useState<{ x: number, y: number } | null>(null);
   
   // Story content state
-  const [caption, setCaption] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -661,17 +673,17 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
       
       // Prepare story data using the helper
       const storyData = createStoryObject({
-    userId,
-    mediaItems,
-    caption,
-    location: selectedLocation || undefined,
-    music: selectedMusic || undefined,
-    filter: selectedFilter === null ? undefined : selectedFilter,
-    isPremium: isPremiumContent,
-    unlockCost: tokenCost,
-    emojis: selectedEmojis,
-    stickers: addedStickers
-  });
+        userId,
+        mediaItems,
+        caption: caption || undefined,
+        location: selectedLocation || undefined,
+        music: selectedMusic || undefined,
+        filter: selectedFilter === null ? undefined : selectedFilter,
+        isPremium: isPremiumContent,
+        unlockCost: tokenCost,
+        emojis: selectedEmojis,
+        stickers: addedStickers
+      });
       
       setUploadProgress(50);
       
@@ -685,8 +697,8 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
         setIsPublished(true);
         
         // Notify parent component if callback provided
-        if (onStoryCreated && result.story) {
-          onStoryCreated(result.story);
+        if (onClose && result.story) {
+          onClose();
         }
         
         // Show warning if there was one
@@ -941,7 +953,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ onClose, onStoryCreated 
                   </button>
                   <input
                     type="text"
-                    value={caption}
+                    value={caption || ''}
                     onChange={(e) => setCaption(e.target.value)}
                     placeholder="Write a caption..."
                     className="flex-1 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[--color-accent-primary]"
