@@ -308,11 +308,15 @@ export interface SpecialEvent {
   id: string;
   name: string;
   description: string;
+  start_date: string;
+  end_date: string;
   location: string;
-  startTime: string;
-  endTime: string;
-  nftImage: string;
-  createdAt: string;
+  theme?: EventTheme;
+  special_offers: SpecialOffer[];
+  created_at: string;
+  updated_at: string;
+  updated_by: string;
+  is_active: boolean;
 }
 
 // Special Offer type for events

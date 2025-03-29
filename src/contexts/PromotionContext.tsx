@@ -88,7 +88,7 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const { data, error } = await supabase
         .from('special_events')
         .select('*')
-        .order('createdAt', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setSpecialEvents(data as SpecialEvent[]);
@@ -109,7 +109,7 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .from('special_events')
         .insert({
           ...event,
-          createdAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
           updatedBy: 'admin',
           isActive: true
         });
@@ -138,7 +138,7 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .update({
           ...updates,
           updatedBy: 'admin',
-          updatedAt: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', eventId);
 

@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../types/database.types';
 import type { Database } from '../types/database.types';
 import { tableExists } from '../utils/robustDataFetching';
 
@@ -44,37 +45,15 @@ export type TokenReward = {
  */
 export class TokenService {
   private static instance: TokenService;
-  private schema: string;
+  private supabase: any;
 
   private constructor() {
-    // Get schema from environment variable or use default
-    this.schema = import.meta.env.VITE_TOKEN_ECONOMY_SCHEMA || 'token_economy';
-    this.initializeSchema();
+    this.supabase = createClient<Database>(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY
+    );
   }
 
-  /**
-   * Initialize schema and verify availability
-   */
-  private async initializeSchema(): Promise<void> {
-    try {
-      // Check if the token_economy schema exists and is accessible
-      const { data, error } = await supabase.rpc('get_schema_exists', {
-        schema_name: this.schema
-      });
-      
-      if (error || !data) {
-        console.log(`Schema ${this.schema} not available, falling back to public schema`);
-        this.schema = 'public';
-      }
-    } catch (error) {
-      console.log('Error checking schema, falling back to public schema:', error);
-      this.schema = 'public';
-    }
-  }
-
-  /**
-   * Get singleton instance of TokenService
-   */
   public static getInstance(): TokenService {
     if (!TokenService.instance) {
       TokenService.instance = new TokenService();
@@ -82,12 +61,178 @@ export class TokenService {
     return TokenService.instance;
   }
 
+  private async checkSchema(): Promise<boolean> {
+    try {
+      const { data, error } = await this.supabase
+        .from('public.schemas')
+        .select('schema_name')
+        .eq('schema_name', 'token_economy');
+
+      if (error) {
+        console.error('Error checking schema existence:', error);
+        return false;
+      }
+
+      return !!data?.length;
+    } catch (error) {
+      console.error('Error checking schema existence:', error);
+      return false;
+    }
+  }
+
+  private async init(): Promise<void> {
+    try {
+      const schemaExists = await this.checkSchema();
+      if (schemaExists) {
+        console.log('Using token_economy schema');
+        this.supabase = createClient<Database>(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          {
+            schema: 'token_economy'
+          }
+        );
+      } else {
+        console.log('Schema token_economy not available, falling back to public schema');
+        this.supabase = createClient<Database>(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
+      }
+    } catch (error) {
+      console.error('Error initializing token service:', error);
+    }
+  }
+
+  public async initialize(): Promise<void> {
+    await this.init();
+  }
+
+  private async tableExists(tableName: string, schema?: string): Promise<boolean> {
+    try {
+      const schemaToUse = schema || 'public';
+      
+      const { data, error } = await this.supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', schemaToUse)
+        .eq('table_name', tableName)
+        .maybeSingle();
+      
+      if (error) {
+        console.log(`Error checking if table ${schemaToUse}.${tableName} exists:`, error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.log(`Exception checking table existence:`, error);
+      return false;
+    }
+  }
+  
+  private async safeRpcCall<T>(funcName: string, params: any, schema?: string): Promise<{ data: T | null, error: any }> {
+    try {
+      const qualifiedFuncName = schema ? `${schema}.${funcName}` : funcName;
+      
+      const { data, error } = await this.supabase.rpc(qualifiedFuncName, params);
+      
+      return { data: data as T, error };
+    } catch (error) {
+      console.log(`Exception calling RPC ${funcName}:`, error);
+      return { data: null, error };
+    }
+  }
+
+  public async getTokenBalance(userId: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('user_tokens')
+      .select('sum(amount) as total')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) throw error;
+    return data?.total || 0;
+  }
+
+  public async mintNFT(userId: string, eventId: string, amount: number, reason: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('event_nfts')
+      .insert([{
+        event_id: eventId,
+        owner_id: userId,
+        amount: amount,
+        reason: reason,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (error) throw error;
+  }
+
+  public async awardBadge(userId: string, eventId: string, reason: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('event_badges')
+      .insert([{
+        event_id: eventId,
+        user_id: userId,
+        reason: reason,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (error) throw error;
+  }
+
+  public async getSpecialEvents(): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from('special_events')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  public async createSpecialEvent(event: any): Promise<void> {
+    const { error } = await this.supabase
+      .from('special_events')
+      .insert({
+        ...event,
+        created_at: new Date().toISOString(),
+        updated_by: 'admin',
+        is_active: true
+      });
+
+    if (error) throw error;
+  }
+
+  public async updateSpecialEvent(eventId: string, updates: any): Promise<void> {
+    const { error } = await this.supabase
+      .from('special_events')
+      .update({
+        ...updates,
+        updated_by: 'admin',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', eventId);
+
+    if (error) throw error;
+  }
+
+  public async deleteSpecialEvent(eventId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('special_events')
+      .delete()
+      .eq('id', eventId);
+
+    if (error) throw error;
+  }
+
   /**
    * Get user's token balance
    * @param userId Optional user ID (uses current user if not provided)
    */
   public async getMyBalance(userId?: string): Promise<TokenBalance | null> {
-    const { data: authUser } = await supabase.auth.getUser();
+    const { data: authUser } = await this.supabase.auth.getUser();
     const targetUserId = userId || authUser.user?.id;
     
     if (!targetUserId) {
@@ -97,8 +242,8 @@ export class TokenService {
 
     try {
       // First try with schema-prefixed table
-      const { data, error } = await supabase
-        .from(`${this.schema}.user_token_balances`)
+      const { data, error } = await this.supabase
+        .from(`${this.supabase.schema}.user_token_balances`)
         .select('*')
         .eq('user_id', targetUserId)
         .single();
@@ -108,7 +253,7 @@ export class TokenService {
       }
 
       // If that fails, try with public schema
-      const { data: publicData, error: publicError } = await supabase
+      const { data: publicData, error: publicError } = await this.supabase
         .from('user_token_balances')
         .select('*')
         .eq('user_id', targetUserId)
@@ -151,59 +296,11 @@ export class TokenService {
   }
 
   /**
-   * Check if a table exists in the database
-   * @param tableName Name of the table to check
-   * @param schema Optional schema name
-   */
-  private async tableExists(tableName: string, schema?: string): Promise<boolean> {
-    try {
-      const schemaToUse = schema || 'public';
-      
-      // Query information_schema to check if table exists
-      const { data, error } = await supabase
-        .from('information_schema.tables')
-        .select('table_name')
-        .eq('table_schema', schemaToUse)
-        .eq('table_name', tableName)
-        .maybeSingle();
-      
-      if (error) {
-        console.log(`Error checking if table ${schemaToUse}.${tableName} exists:`, error);
-        return false;
-      }
-      
-      return !!data;
-    } catch (error) {
-      console.log(`Exception checking table existence:`, error);
-      return false;
-    }
-  }
-  
-  /**
-   * Safe RPC call with error handling
-   * @param funcName Name of the RPC function to call
-   * @param params Parameters to pass to the function
-   * @param schema Optional schema name
-   */
-  private async safeRpcCall<T>(funcName: string, params: any, schema?: string): Promise<{ data: T | null, error: any }> {
-    try {
-      const qualifiedFuncName = schema ? `${schema}.${funcName}` : funcName;
-      
-      const { data, error } = await supabase.rpc(qualifiedFuncName, params);
-      
-      return { data: data as T, error };
-    } catch (error) {
-      console.log(`Exception calling RPC ${funcName}:`, error);
-      return { data: null, error };
-    }
-  }
-
-  /**
    * Get user's token data including stories and NFTs count
    * Enhanced for better resilience against missing schemas, tables, and functions
    */
   public async getUserTokenData(userId?: string): Promise<UserTokenData | null> {
-    const { data: authUser } = await supabase.auth.getUser();
+    const { data: authUser } = await this.supabase.auth.getUser();
     const targetUserId = userId || authUser.user?.id;
     
     if (!targetUserId) {
@@ -222,7 +319,7 @@ export class TokenService {
       const { data: schemaData, error: schemaError } = await this.safeRpcCall<UserTokenData>(
         'get_user_token_data',
         { p_user_id: targetUserId },
-        this.schema
+        this.supabase.schema
       );
 
       if (!schemaError && schemaData) {
@@ -230,7 +327,7 @@ export class TokenService {
       }
 
       // 2. Try with public schema (no prefix) if the first attempt fails
-      if (this.schema !== 'public') {
+      if (this.supabase.schema !== 'public') {
         const { data: publicData, error: publicError } = await this.safeRpcCall<UserTokenData>(
           'get_user_token_data',
           { p_user_id: targetUserId }
@@ -262,7 +359,7 @@ export class TokenService {
       const storiesTableExists = await this.tableExists('stories');
       if (storiesTableExists) {
         try {
-          const { data: stories, error } = await supabase
+          const { data: stories, error } = await this.supabase
             .from('stories')
             .select('id', { count: 'exact' })
             .eq('user_id', targetUserId);
@@ -279,7 +376,7 @@ export class TokenService {
       const nftsTableExists = await this.tableExists('user_nfts');
       if (nftsTableExists) {
         try {
-          const { data: nfts, error } = await supabase
+          const { data: nfts, error } = await this.supabase
             .from('user_nfts')
             .select('id', { count: 'exact' })
             .eq('user_id', targetUserId);
@@ -343,7 +440,7 @@ export class TokenService {
     referenceId?: string,
     description?: string
   ): Promise<number | null> {
-    const { data: authUser } = await supabase.auth.getUser();
+    const { data: authUser } = await this.supabase.auth.getUser();
     if (!authUser.user) {
       console.error('User not authenticated');
       return null;
@@ -352,7 +449,7 @@ export class TokenService {
     try {
       // Try schema-prefixed RPC first
       try {
-        const { data, error } = await supabase.rpc(`${this.schema}.earn_tokens`, {
+        const { data, error } = await this.supabase.rpc(`${this.supabase.schema}.earn_tokens`, {
           p_user_id: authUser.user.id,
           p_amount: amount,
           p_action: action,
@@ -369,7 +466,7 @@ export class TokenService {
 
       // Try public schema RPC
       try {
-        const { data: publicData, error: publicError } = await supabase.rpc('earn_tokens', {
+        const { data: publicData, error: publicError } = await this.supabase.rpc('earn_tokens', {
           p_user_id: authUser.user.id,
           p_amount: amount,
           p_action: action,
@@ -423,7 +520,7 @@ export class TokenService {
     referenceId?: string,
     description?: string
   ): Promise<number | null> {
-    const { data: authUser } = await supabase.auth.getUser();
+    const { data: authUser } = await this.supabase.auth.getUser();
     if (!authUser.user) {
       console.error('User not authenticated');
       return null;
@@ -432,7 +529,7 @@ export class TokenService {
     try {
       // Try schema-prefixed RPC first
       try {
-        const { data, error } = await supabase.rpc(`${this.schema}.spend_tokens`, {
+        const { data, error } = await this.supabase.rpc(`${this.supabase.schema}.spend_tokens`, {
           p_user_id: authUser.user.id,
           p_amount: amount,
           p_action: action,
@@ -450,7 +547,7 @@ export class TokenService {
 
       // Try public schema RPC
       try {
-        const { data: publicData, error: publicError } = await supabase.rpc('spend_tokens', {
+        const { data: publicData, error: publicError } = await this.supabase.rpc('spend_tokens', {
           p_user_id: authUser.user.id,
           p_amount: amount,
           p_action: action,
@@ -504,14 +601,14 @@ export class TokenService {
    * @param limit Maximum number of transactions to return
    */
   public async getMyTransactions(limit: number = 10): Promise<TokenTransaction[]> {
-    const { data: authUser } = await supabase.auth.getUser();
+    const { data: authUser } = await this.supabase.auth.getUser();
     if (!authUser.user) {
       console.error('User not authenticated');
       return [];
     }
 
-    const { data, error } = await supabase
-      .from(`${this.schema}.token_transactions`)
+    const { data, error } = await this.supabase
+      .from(`${this.supabase.schema}.token_transactions`)
       .select('*')
       .or(`user_id.eq.${authUser.user.id},recipient_id.eq.${authUser.user.id}`)
       .order('created_at', { ascending: false })
@@ -550,8 +647,8 @@ export class TokenService {
    * Admin: Get all user balances (admin only)
    */
   public async getAllUserBalances(): Promise<TokenBalance[]> {
-    const { data, error } = await supabase
-      .from(`${this.schema}.user_token_balances`)
+    const { data, error } = await this.supabase
+      .from(`${this.supabase.schema}.user_token_balances`)
       .select('*')
       .order('balance', { ascending: false });
 
@@ -568,8 +665,8 @@ export class TokenService {
    * @param limit Maximum number of transactions to return
    */
   public async getAllTransactions(limit: number = 100): Promise<TokenTransaction[]> {
-    const { data, error } = await supabase
-      .from(`${this.schema}.token_transactions`)
+    const { data, error } = await this.supabase
+      .from(`${this.supabase.schema}.token_transactions`)
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -590,7 +687,7 @@ export class TokenService {
    */
   public async mintEventNFT(eventId: string, userId: string, metadata: Record<string, any> = {}): Promise<string> {
     try {
-      const { data: nftData, error } = await supabase
+      const { data: nftData, error } = await this.supabase
         .from('event_nfts')
         .insert([
           {
@@ -629,7 +726,7 @@ export class TokenService {
     metadata: Record<string, any> = {}
   ): Promise<string> {
     try {
-      const { data: badgeData, error } = await supabase
+      const { data: badgeData, error } = await this.supabase
         .from('event_badges')
         .insert([
           {
@@ -661,7 +758,7 @@ export class TokenService {
    * @param userId The ID of the user
    */
   public async getUserEventNFTs(eventId: string, userId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('event_nfts')
       .select('*')
       .eq('event_id', eventId)
@@ -677,7 +774,7 @@ export class TokenService {
    * @param userId The ID of the user
    */
   public async getUserEventBadges(eventId: string, userId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('event_badges')
       .select('*')
       .eq('event_id', eventId)
@@ -685,6 +782,49 @@ export class TokenService {
 
     if (error) throw error;
     return data || [];
+  }
+
+  private async checkSchema(): Promise<boolean> {
+    try {
+      const { data, error } = await this.supabase
+        .from('public.schemas')
+        .select('schema_name')
+        .eq('schema_name', 'token_economy');
+
+      if (error) {
+        console.error('Error checking schema existence:', error);
+        return false;
+      }
+
+      return !!data?.length;
+    } catch (error) {
+      console.error('Error checking schema existence:', error);
+      return false;
+    }
+  }
+
+  private async init(): Promise<void> {
+    try {
+      const schemaExists = await this.checkSchema();
+      if (schemaExists) {
+        console.log('Using token_economy schema');
+        this.supabase = createClient<Database>(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          {
+            schema: 'token_economy'
+          }
+        );
+      } else {
+        console.log('Schema token_economy not available, falling back to public schema');
+        this.supabase = createClient<Database>(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
+      }
+    } catch (error) {
+      console.error('Error initializing token service:', error);
+    }
   }
 }
 
