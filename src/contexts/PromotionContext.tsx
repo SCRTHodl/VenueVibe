@@ -8,6 +8,8 @@ interface PromotionContextType {
   specialEvents: SpecialEvent[];
   loading: boolean;
   error: string | null;
+  showBanner: boolean;
+  setShowBanner: (show: boolean) => void;
   fetchPromotionSettings: () => Promise<void>;
   updatePromotionSettings: (settings: Partial<PromotionSettings>) => Promise<void>;
   fetchSpecialEvents: () => Promise<void>;
@@ -31,6 +33,7 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [specialEvents, setSpecialEvents] = useState<SpecialEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showBanner, setShowBanner] = useState(false);
 
   const fetchPromotionSettings = async () => {
     try {
@@ -64,17 +67,11 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .eq('id', 1);
 
       if (error) throw error;
-      
-      // Update local state
-      setPromotionSettings(prev => 
-        prev ? { ...prev, ...settings } : null
-      );
-
       toast.success('Promotion settings updated successfully');
+      await fetchPromotionSettings();
     } catch (err) {
       console.error('Error updating promotion settings:', err);
       setError('Failed to update promotion settings');
-      toast.error('Failed to update promotion settings');
     } finally {
       setLoading(false);
     }
@@ -192,6 +189,8 @@ export const PromotionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         specialEvents,
         loading,
         error,
+        showBanner,
+        setShowBanner,
         fetchPromotionSettings,
         updatePromotionSettings,
         fetchSpecialEvents,

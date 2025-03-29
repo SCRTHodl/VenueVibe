@@ -6,6 +6,8 @@ export interface EventItem {
     last_used?: string;
     [key: string]: any;
   };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface EventNFT extends EventItem {

@@ -1,28 +1,23 @@
 import React from 'react';
 import { usePromotion } from '../../contexts/PromotionContext';
 import { X } from 'lucide-react';
+import { PromotionSettings } from '../../types';
 
 const PromotionBanner: React.FC = () => {
   const { promotionSettings, showBanner, setShowBanner } = usePromotion();
-  
-  if (!showBanner || !promotionSettings.isEnabled) {
+
+  if (!promotionSettings || !showBanner || !promotionSettings.isEnabled) {
     return null;
   }
-  
+
   const theme = promotionSettings.promotionTheme;
-  
-  // Style based on theme if available
-  const bannerStyle = theme ? {
-    backgroundColor: theme.primaryColor,
-    color: theme.secondaryColor,
+
+  const bannerStyle = {
+    backgroundColor: theme?.primaryColor || '#4F46E5',
+    color: theme?.secondaryColor || 'white',
     fontWeight: 'bold'
-  } : {
-    backgroundColor: '#4F46E5',
-    color: 'white',
-    fontFamily: 'sans-serif'
   };
-  
-  // Button style based on theme
+
   const buttonStyle = theme ? {
     backgroundColor: theme.accentColor,
     color: 'white'
@@ -30,7 +25,7 @@ const PromotionBanner: React.FC = () => {
     backgroundColor: '#E5E7EB',
     color: '#1F2937'
   };
-  
+
   return (
     <div 
       className="relative py-3 px-4 text-center sm:px-6 lg:px-8" 

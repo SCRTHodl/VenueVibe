@@ -16,7 +16,17 @@ interface User {
 }
 
 interface EventNFTsProps {
-  event: SpecialEvent | null;
+  event: {
+    id: string;
+    name: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    location: string;
+    image_url?: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
 }
 
 const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
@@ -89,6 +99,7 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
   const handleMintNFT = async (userId: string) => {
     try {
       setIsMinting(true);
+      if (!event) return;
       await tokenService.mintNFT(userId, event.id, { event_id: event.id });
       await loadEventAssets();
       toast.success('NFT minted successfully');
@@ -103,6 +114,7 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
   const handleAwardBadge = async (userId: string, badgeType: 'attendance' | 'participant' | 'contributor') => {
     try {
       setIsAwarding(true);
+      if (!event) return;
       await tokenService.awardBadge(userId, event.id, badgeType, { event_id: event.id });
       await loadEventAssets();
       toast.success('Badge awarded successfully');
@@ -118,6 +130,8 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
     setSelectedUser(user);
     setShowUserModal(false);
   };
+
+  if (!event) return null;
 
   return (
     <div className="space-y-6">
@@ -151,146 +165,136 @@ const EventNFTs: React.FC<EventNFTsProps> = ({ event }) => {
           <LoadingSpinner />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="col-span-full">
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-4">Event NFTs</h3>
-              <div className="space-y-4">
-                {nfts.map((nft) => (
-                  <div
-                    key={nft.id}
-                    className="p-4 border rounded-lg flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-medium">Owner: {nft.owner_id}</p>
-                      <p className="text-sm text-gray-500">Minted: {new Date(nft.created_at).toLocaleString()}</p>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="col-span-full">
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="font-semibold mb-4">Event NFTs</h3>
+                <div className="space-y-4">
+                  {nfts.map((nft) => (
+                    <div
+                      key={nft.id}
+                      className="p-4 border rounded-lg flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">Owner: {nft.owner_id}</p>
+                        <p className="text-sm text-gray-500">Minted: {new Date(nft.created_at).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          NFT
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        NFT
-                      </span>
+                  ))}
+                  {nfts.length === 0 && (
+                    <p className="text-center text-gray-500">No NFTs minted yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="col-span-full">
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="font-semibold mb-4">Event Badges</h3>
+                <div className="space-y-4">
+                  {badges.map((badge) => (
+                    <div
+                      key={badge.id}
+                      className="p-4 border rounded-lg flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">Owner: {badge.user_id}</p>
+                        <p className="text-sm text-gray-500">Type: {badge.badge_type}</p>
+                        <p className="text-sm text-gray-500">Awarded: {new Date(badge.created_at).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                          Badge
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {nfts.length === 0 && (
-                  <p className="text-center text-gray-500">No NFTs minted yet</p>
-                )}
+                  ))}
+                  {badges.length === 0 && (
+                    <p className="text-center text-gray-500">No badges awarded yet</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="col-span-full">
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-4">Event Badges</h3>
+          <Modal
+            isOpen={showUserModal}
+            onClose={() => {
+              setShowUserModal(false);
+              setSelectedUser(null);
+            }}
+            title={selectedUser ? 'Select Action' : 'Select User'}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-bold mb-4">Select User</h3>
               <div className="space-y-4">
-                {badges.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="p-4 border rounded-lg flex items-center justify-between"
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      const searchTerm = e.target.value.toLowerCase();
+                      const filteredUsers = users.filter(user =>
+                        user.email.toLowerCase().includes(searchTerm) ||
+                        user.name.toLowerCase().includes(searchTerm)
+                      );
+                      setUsers(filteredUsers);
+                    }}
+                  />
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded-lg"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {selectedUser?.id === user.id ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUserModal(false)}
                   >
-                    <div>
-                      <p className="font-medium">Owner: {badge.owner_id}</p>
-                      <p className="text-sm text-gray-500">Type: {badge.type}</p>
-                      <p className="text-sm text-gray-500">Awarded: {new Date(badge.created_at).toLocaleString()}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                        Badge
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {badges.length === 0 && (
-                  <p className="text-center text-gray-500">No badges awarded yet</p>
-                )}
+                    Cancel
+                  </Button>
+                  {selectedUser && (
+                    <Button
+                      onClick={() => {
+                        if (selectedUser) {
+                          handleMintNFT(selectedUser.id);
+                        }
+                      }}
+                      disabled={isMinting}
+                    >
+                      Mint NFT
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </Modal>
+        </>
       )}
-
-      <Modal
-        isOpen={showUserModal}
-        onClose={() => setShowUserModal(false)}
-        title={selectedUser ? 'Select Action' : 'Select User'}
-      >
-        {selectedUser ? (
-          <div className="space-y-4">
-            <p className="text-lg font-semibold">{selectedUser.name}</p>
-            <p className="text-gray-500">{selectedUser.email}</p>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => handleMintNFT(selectedUser.id)}
-                disabled={isMinting}
-              >
-                {isMinting ? 'Minting...' : 'Mint NFT'}
-              </Button>
-              <Button
-                onClick={() => handleAwardBadge(selectedUser.id, 'attendance')}
-                disabled={isAwarding}
-              >
-                {isAwarding ? 'Awarding...' : 'Award Attendance Badge'}
-              </Button>
-              <Button
-                onClick={() => handleAwardBadge(selectedUser.id, 'participant')}
-                disabled={isAwarding}
-              >
-                {isAwarding ? 'Awarding...' : 'Award Participant Badge'}
-              </Button>
-              <Button
-                onClick={() => handleAwardBadge(selectedUser.id, 'contributor')}
-                disabled={isAwarding}
-              >
-                {isAwarding ? 'Awarding...' : 'Award Contributor Badge'}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search users..."
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) => {
-                  const searchTerm = e.target.value.toLowerCase();
-                  const filteredUsers = users.filter(user =>
-                    user.name.toLowerCase().includes(searchTerm) ||
-                    user.email.toLowerCase().includes(searchTerm)
-                  );
-                  setUsers(filteredUsers);
-                }}
-              />
-              {isFetchingUsers && (
-                <div className="absolute right-2 top-2">
-                  <LoadingSpinner size={16} />
-                </div>
-              )}
-            </div>
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleSelectUser(user)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-gray-500">{user.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        Select
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
